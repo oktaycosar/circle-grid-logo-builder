@@ -32,6 +32,7 @@ import {
   mirrorRegions,
   mirrorSample,
   regionAt,
+  regionsInDisc,
   signedLoopArea,
   type GridDrawPlan,
   type GridDrawSettings,
@@ -595,6 +596,23 @@ test('gd: ızgara çizgisi boyunca komşu iki göz birleşince iç çatlak kalma
     1,
     'ızgara duvarından arta kalan saç teli çatlak, delik olarak kalmamalı',
   );
+});
+
+test('gd: birleştirme, boyanmamış GERÇEK gözleri delik olarak korur', () => {
+  // Dayanıklılık: kama yutma adımı yalnızca duvardan oluşan boşlukları
+  // yutmalı; gerçek bir gözü asla doldurmamalı. Halka doldurup içini
+  // boyamayınca ortada gerçek bir DELİK kalmalı.
+  const plan = buildGridDrawPlan(
+    settings({ grid: 12, size: 1440, guides: [circleGuide(720, 720, 600), circleGuide(720, 720, 300)] }),
+  );
+  const outer = regionsInDisc(plan, 720, 720, 600, 'in');
+  const inner = new Set(regionsInDisc(plan, 720, 720, 300, 'in'));
+  const ring = new Set(outer.filter((id) => !inner.has(id)));
+  assert.ok(ring.size >= 10, `halkada yeterli göz yok: ${ring.size}`);
+
+  const merged = mergeFilledRegions(plan, ring);
+  assert.ok(merged);
+  assert.equal(merged.loops.length, 2, 'halka: dış sınır + gerçek iç delik');
 });
 
 test('gd: hazır gridler yalnızca ızgara + kılavuz tanımlar, dolgu içermez', () => {

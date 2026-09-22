@@ -1414,6 +1414,102 @@ export function mergeFilledRegions(
     }
   }
 
+  // 3c) DOLU ALANIN İÇİNDE KALAN DUVAR KAMALARINI YUT.
+  //
+  // Izgara çizgisi ile bir yay/çapraz neredeyse teğet geçerse arada kalan ince
+  // kama hiçbir zaman GÖZ olamaz (duvar bandı oraya sığmaz): boyaması da
+  // tıklaması da imkânsızdır. Tuvalde bu, dolu şeklin içinde "neden
+  // dolmuyor?" denen küçük bir boşluk olarak görünür.
+  //
+  // Kural: dışarıdan (kenardan) ulaşılamayan, yani dolu alanın İÇİNDE kalan
+  // boşluklardan YALNIZCA duvardan (etiket 0) oluşan örnekler en yakın dolu
+  // parçaya katılır. Gerçek ama boyanmamış GÖZLER (etiket ≠ 0) delik olarak
+  // KALIR; böylece logo delikleri korunur.
+  const outside = new Uint8Array(size);
+  const queue = new Int32Array(size);
+  let head = 0;
+  let tail = 0;
+  const visit = (i: number): void => {
+    if (outside[i] || shaped[i] !== 0) return;
+    outside[i] = 1;
+    queue[tail++] = i;
+  };
+  for (let x = 0; x < width; x++) {
+    visit(x);
+    visit((height - 1) * width + x);
+  }
+  for (let y = 0; y < height; y++) {
+    visit(y * width);
+    visit(y * width + width - 1);
+  }
+  while (head < tail) {
+    const i = queue[head++];
+    const x = i % width;
+    const y = (i - x) / width;
+    if (x > 0) visit(i - 1);
+    if (x + 1 < width) visit(i + 1);
+    if (y > 0) visit(i - width);
+    if (y + 1 < height) visit(i + width);
+  }
+
+  // Kapalı kalan boşlukları BİLEŞENLERE ayır. Yalnızca tamamen duvardan oluşan
+  // ve boyanmamış GERÇEK bir göze komşu OLMAYAN bileşenler yutulur:
+  //   • kama (ızgara çizgisi ile yay arası, içeride kalır)  → yutulur,
+  //   • boyanmamış bir gözün içindeki ızgara çizgisi        → yutulmaz
+  //     (yoksa delik, ızgara karelerine bölünürdü).
+  const comp = new Int32Array(size).fill(-1);
+  const absorb = new Uint8Array(size);
+  const members: number[] = [];
+  for (let seed = 0; seed < size; seed++) {
+    if (shaped[seed] !== 0 || outside[seed] || comp[seed] !== -1) continue;
+    members.length = 0;
+    comp[seed] = seed + 1;
+    members.push(seed);
+    let touchesUnpaintedRegion = plan.labels[seed] !== 0;
+    for (let k = 0; k < members.length; k++) {
+      const p = members[k];
+      const x = p % width;
+      const y = (p - x) / width;
+      for (let d = 0; d < 4; d++) {
+        const nx = d === 0 ? x + 1 : d === 1 ? x - 1 : x;
+        const ny = d === 2 ? y + 1 : d === 3 ? y - 1 : y;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        const q = ny * width + nx;
+        if (plan.labels[q] !== 0 && shaped[q] === 0) touchesUnpaintedRegion = true;
+        if (shaped[q] === 0 && !outside[q] && comp[q] === -1) {
+          comp[q] = seed + 1;
+          members.push(q);
+        }
+      }
+    }
+    if (!touchesUnpaintedRegion) {
+      for (const p of members) absorb[p] = 1;
+    }
+  }
+
+  // Yutulan örnekler en yakın dolu komşunun etiketini alır (bileşen kalın
+  // olabildiği için turlarla yayılır).
+  for (let pass = 0; pass < 64; pass++) {
+    let changed = false;
+    for (let y = 0; y < height; y++) {
+      const row = y * width;
+      for (let x = 0; x < width; x++) {
+        const i = row + x;
+        if (!absorb[i] || shaped[i] !== 0) continue;
+        const l = x > 0 ? shaped[i - 1] : 0;
+        const r = x + 1 < width ? shaped[i + 1] : 0;
+        const u = y > 0 ? shaped[i - width] : 0;
+        const d = y + 1 < height ? shaped[i + width] : 0;
+        const label = l || r || u || d;
+        if (label !== 0) {
+          shaped[i] = label;
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+
   const traced = traceContours(shaped, width, height, plan.guides);
   if (!traced.length) return null;
 
