@@ -23,6 +23,9 @@ Kurulum gerektirmeyen tarayıcı sürümü:
 
 **https://oktaycosar.github.io/circle-grid-logo-builder/**
 
+> ⚠️ Bu adres **henüz yayında değil** (404 döner). Sebebi ve yayına alma
+> adımları aşağıda: [Yayına almak için tek koşul](#yayına-almak-için-tek-koşul-depo-görünürlüğü).
+
 `main` dalına yapılan her push'ta `.github/workflows/deploy-pages.yml` iş akışı
 `npm test` + `npm run build` çalıştırır ve `dist/` klasörünü yayımlar. Yerelde
 `npm run build` sonrası `dist/` içeriğini elle yüklemek de mümkündür.
@@ -43,9 +46,30 @@ gh repo edit oktaycosar/circle-grid-logo-builder --visibility public --accept-vi
 ```
 
 Arayüzden: **Settings → General → Danger Zone → Change visibility → Public**.
-İşlem geri alınabilir; tekrar private yapılırsa site yayından kalkar. Depoyu
-private tutup siteyi yayınlamak isterseniz alternatifler: **Cloudflare Pages**,
-**Netlify** veya **Vercel** (ücretsiz planları private depo destekler).
+İşlem geri alınabilir; tekrar private yapılırsa site yayından kalkar.
+
+> ⚠️ **Public yapmadan önce okuyun:** Bu depoda indirilmiş bir eğitim videosu
+> (`D Logo Design Tutorial Using Grid Method (…).mp4`, 18.6 MB) ve ondan çıkarılan
+> kare setleri (`video_frames/`, `video2_frames/`, `*_contact.jpg/png`) bulunuyor.
+> Bunlar üçüncü tarafın telifli içeriği — depoyu public yapmak bunları da yayınlar.
+> Bu dosyaları geçmişten çıkarmadan depoyu public yapmak önerilmez.
+
+### Yol B (önerilen): kaynak private kalsın, yalnızca site yayınlansın
+
+`scripts/publish-site.ps1` sadece derlenmiş çıktıyı (`dist/` + `.nojekyll`) ayrı bir
+**public** depoya gönderir ve GitHub Pages'i açar. Kaynak kod, git geçmişi ve
+referans videolar private kalır; yayınlanan şey yalnızca tarayıcıda çalışan derlemedir.
+
+```powershell
+powershell -File scripts/publish-site.ps1            # kuru çalıştırma (hiçbir şey yayınlanmaz)
+powershell -File scripts/publish-site.ps1 -Publish   # public site deposunu oluşturur/günceller
+```
+
+Yayın adresi: **https://oktaycosar.github.io/circle-grid-logo-builder-site/**
+(depo adı `-SiteRepo` parametresiyle değiştirilebilir).
+
+Diğer alternatifler (depo private kalır, üçüncü taraf): **Cloudflare Pages**,
+**Netlify** veya **Vercel** — ücretsiz planları private depo destekler.
 
 > Sayfa `https://` üzerinden açıldığı için tarayıcı deposu `file://` ve
 > `localhost` kopyalarından ayrıdır — tasarımlar arasında geçiş için
