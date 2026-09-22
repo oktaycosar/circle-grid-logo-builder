@@ -177,6 +177,7 @@ bağlanmıştır (`tests/griddraw-output.test.ts` her birini denetler):
 | **Zikzak / çentik yok** | Köpek bacağı temizliği + yakın köşe birleştirme + eksik köşe onarımı |
 | Köşeler **yuvarlama hatası taşımaz** | Kesişimler analitik hesaplanır: grid×grid, grid×daire, grid×çizgi, daire×daire, daire×çizgi, çizgi×çizgi |
 | Yaylar **gerçek yay kalır** | Noktalar tam daire üzerine radyal oturtulur |
+| Dolu şeklin içinde **saç teli çatlak olmaz** | Duvar 3 örnek kalınlığında olduğu için birleştirmeden 1–2 örneklik kalıntı kalıyordu; iki yanı aynı parça olan kalıntılar o parçaya katılır (tuvalde ızgara çizgisi örttüğü için görünmez, temiz SVG/PNG çıktısında çatlak olarak çıkıyordu) |
 
 Sınır hattı sırası (tek bir halka için):
 

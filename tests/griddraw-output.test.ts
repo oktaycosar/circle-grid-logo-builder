@@ -569,6 +569,31 @@ test('gd: tekil bölgeler de kusursuz geometri kurallarına uyar', () => {
   assert.ok(checked >= 20, `yeterli bölge denetlenmeli, ${checked}`);
 });
 
+test('gd: ızgara çizgisi boyunca komşu iki göz birleşince iç çatlak kalmaz', () => {
+  const size = 1440;
+  const plan = buildGridDrawPlan(settings({ grid: 14, size, guides: [] }));
+  const cell = plan.guides.cell;
+
+  // Yan yana iki göz: aralarında yalnızca ızgara duvarı var. Birleşince
+  // 1×2 hücrelik DOLU bir dikdörtgen çıkmalı; ızgara duvarından arta kalan
+  // saç teli bir çatlak delik olarak kalmamalı (eskiden 2 halka çıkıyordu).
+  const left = regionAt(plan, { x: cell * 3.5, y: cell * 3.5 });
+  const right = regionAt(plan, { x: cell * 4.5, y: cell * 3.5 });
+  assert.ok(left > 0 && right > 0, 'yan yana iki göz bulunmalı');
+  assert.notEqual(left, right);
+
+  const single = mergeFilledRegions(plan, new Set([left]));
+  assert.equal(single?.loops.length, 1, 'tek göz tek halka olmalı');
+
+  const merged = mergeFilledRegions(plan, new Set([left, right]));
+  assert.ok(merged);
+  assert.equal(
+    merged.loops.length,
+    1,
+    'ızgara duvarından arta kalan saç teli çatlak, delik olarak kalmamalı',
+  );
+});
+
 test('gd: merkez artısı kılavuzları da kusursuz bölge üretir', () => {
   const plan = buildGridDrawPlan(settings({ grid: 5, size: 500, guides: centerCrossLines(500) }));
   const g = plan.guides;

@@ -1315,6 +1315,46 @@ export function mergeFilledRegions(
     if (id !== 0 && (areas.get(id) ?? 0) < MIN_REGION_AREA) shaped[i] = 0;
   }
 
+  // 3b) SAÇ TELİ ÇATLAKLARI KAPAT.
+  //
+  // Duvar (ızgara/daire/çapraz çizgisi) 3 örnek kalınlığındadır ve
+  // MERGE_SHAPE=1 genişletmesi bandın ORTASINDA 1–2 örneklik bir kalıntı
+  // bırakır. Tuvalde ızgara çizgisi bunu örttüğü için görünmez, ama temiz
+  // (kılavuzsuz) SVG/PNG çıktısında dolu şeklin içinden geçen saç teli bir
+  // ÇATLAK olarak çıkar. Burada yalnızca KARŞI İKİ YANINDA AYNI parça bulunan
+  // (en çok `MERGE_CLOSE + 1` örnek ötede) kalıntılar o parçaya katılır;
+  // böylece dış sınır ve komşuluk ilişkileri değişmez, kontur sırası bozulmaz.
+  // Bir hücrenin binde biri kadar bir boşluk zaten tasarım olamaz.
+  const REACH = MERGE_CLOSE + 1;
+  const nearest = (from: number, step: number): number => {
+    for (let k = 1; k <= REACH; k++) {
+      const v = shaped[from + k * step];
+      if (v !== 0) return v;
+    }
+    return 0;
+  };
+  for (let y = 0; y < height; y++) {
+    const row = y * width;
+    for (let x = 0; x < width; x++) {
+      const i = row + x;
+      if (shaped[i] !== 0) continue;
+      if (x >= REACH && x + REACH < width) {
+        const left = nearest(i, -1);
+        if (left !== 0 && left === nearest(i, 1)) {
+          shaped[i] = left;
+          continue;
+        }
+      }
+      if (y >= REACH && y + REACH < height) {
+        const up = nearest(i, -width);
+        if (up !== 0 && up === nearest(i, width)) {
+          shaped[i] = up;
+          continue;
+        }
+      }
+    }
+  }
+
   const traced = traceContours(shaped, width, height, plan.guides);
   if (!traced.length) return null;
 
