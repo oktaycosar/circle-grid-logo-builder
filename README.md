@@ -48,11 +48,13 @@ gh repo edit oktaycosar/circle-grid-logo-builder --visibility public --accept-vi
 Arayüzden: **Settings → General → Danger Zone → Change visibility → Public**.
 İşlem geri alınabilir; tekrar private yapılırsa site yayından kalkar.
 
-> ⚠️ **Public yapmadan önce okuyun:** Bu depoda indirilmiş bir eğitim videosu
-> (`D Logo Design Tutorial Using Grid Method (…).mp4`, 18.6 MB) ve ondan çıkarılan
-> kare setleri (`video_frames/`, `video2_frames/`, `*_contact.jpg/png`) bulunuyor.
-> Bunlar üçüncü tarafın telifli içeriği — depoyu public yapmak bunları da yayınlar.
-> Bu dosyaları geçmişten çıkarmadan depoyu public yapmak önerilmez.
+> ℹ️ **Telifli referans malzemesi depodan çıkarıldı (22.09.2026):** Üçüncü taraf bir
+> eğitim videosu ve ondan çıkarılan kare setleri (`*.mp4`, `video_frames/`,
+> `video2_frames/`, `*_contact.jpg/png`) hem çalışma ağacından hem de **git
+> geçmişinden** temizlendi (`git filter-branch` + gc + force-push). Depo bu nedenle
+> ~21 MB'tan ~3 MB'a indi. Kopyalar depo dışında duruyor:
+> `Desktop\Harness_Genel_26\logo_proje_video_referans\` — yalnızca yerel referans
+> olarak kullanın, tekrar commit etmeyin.
 
 ### Yol B (önerilen): kaynak private kalsın, yalnızca site yayınlansın
 
