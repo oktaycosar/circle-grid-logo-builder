@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+.DS_Store
+
+# Derleme ve araç artıkları
+*.tsbuildinfo
+*.log
+.vscode/
+.idea/
+coverage/

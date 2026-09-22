@@ -1,0 +1,804 @@
+/* Grid Draw — tek ekranlık basit mod stilleri */
+
+.gd {
+  --gd-bg: #15171b;
+  --gd-panel: #1b1e24;
+  --gd-panel-2: #20242b;
+  --gd-line: #2c313a;
+  --gd-line-2: #3a4049;
+  --gd-text: #e8e6e1;
+  --gd-dim: #98a0ac;
+  --gd-accent: #6f8cff;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--gd-bg);
+  color: var(--gd-text);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------- üst bar */
+
+.gd__top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--gd-panel);
+  border-bottom: 1px solid var(--gd-line);
+  flex: 0 0 auto;
+}
+
+.gd__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.gd__mark {
+  color: #c9a227;
+  font-size: 16px;
+}
+
+.gd__muted {
+  color: var(--gd-dim);
+  font-weight: 400;
+}
+
+.gd__brand small {
+  margin-left: 6px;
+  padding: 2px 6px;
+  border: 1px solid var(--gd-line-2);
+  border-radius: 4px;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  color: var(--gd-dim);
+}
+
+.gd__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.gd__btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid var(--gd-line-2);
+  background: var(--gd-panel-2);
+  color: var(--gd-text);
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.gd__btn:hover:not(:disabled) {
+  background: #2a2f38;
+}
+
+.gd__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.gd__btn--primary {
+  background: var(--gd-accent);
+  border-color: #8ba2ff;
+  color: #0d1017;
+  font-weight: 600;
+}
+
+.gd__btn--primary:hover:not(:disabled) {
+  background: #8ba2ff;
+}
+
+/* --------------------------------------------------------------- gövde */
+
+.gd__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr) 280px;
+  gap: 1px;
+  background: var(--gd-line);
+}
+
+.gd__panel {
+  background: var(--gd-panel);
+  padding: 14px;
+  overflow-y: auto;
+  /* Yatay taşma yok: içerik tam sığdığında bile tarayıcı 1–2 px'lik
+     yuvarlama farkıyla yatay kaydırma çubuğu çizebiliyor. */
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/*
+ * Panel bir flex kolon olduğu için çocuklar varsayılan olarak kısalır
+ * (flex-shrink: 1). İçerik uzayınca kılavuz listesi 0 yüksekliğe çöküp
+ * görünmez oluyordu; panel kendisi kaydırsın, çocuklar doğal boyutunda kalsın.
+ */
+.gd__panel > * {
+  flex-shrink: 0;
+}
+
+.gd__panel--right {
+  gap: 10px;
+}
+
+.gd__panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  color: var(--gd-text);
+  margin-top: 4px;
+}
+
+.gd__panel-title span {
+  margin-left: auto;
+  font-weight: 500;
+  color: var(--gd-dim);
+  letter-spacing: 0.6px;
+  font-size: 10px;
+}
+
+.gd__label {
+  font-size: 10px;
+  letter-spacing: 1.1px;
+  color: var(--gd-dim);
+  margin-top: 10px;
+}
+
+.gd__presets,
+.gd__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gd__chip {
+  flex: 1 1 auto;
+  min-width: 44px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--gd-line-2);
+  background: var(--gd-panel-2);
+  color: var(--gd-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.gd__chip:hover {
+  background: #2a2f38;
+}
+
+.gd__chip--on {
+  background: var(--gd-accent);
+  border-color: #8ba2ff;
+  color: #0d1017;
+  font-weight: 600;
+}
+
+.gd__wide {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--gd-line-2);
+  background: var(--gd-panel-2);
+  color: var(--gd-text);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gd__wide:hover {
+  background: #2a2f38;
+}
+
+.gd__wide--on {
+  border-color: var(--gd-accent);
+  box-shadow: inset 0 0 0 1px rgba(111, 140, 255, 0.5);
+  color: #cfd8ff;
+}
+
+.gd__grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.gd__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--gd-line-2);
+  background: var(--gd-panel-2);
+}
+
+.gd__field span {
+  font-size: 11px;
+  color: var(--gd-dim);
+}
+
+.gd__field input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  color: var(--gd-text);
+  font-size: 12.5px;
+  outline: none;
+}
+
+.gd__color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--gd-line-2);
+  background: var(--gd-panel-2);
+}
+
+.gd__color input[type='color'] {
+  width: 34px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.gd__color code {
+  font-size: 12px;
+  color: var(--gd-dim);
+}
+
+/* -------------------------------------------------------------- sahne */
+
+.gd__stage {
+  background: #101216;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 14px;
+  gap: 10px;
+}
+
+.gd__stage-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  color: var(--gd-dim);
+}
+
+.gd__stage-head strong {
+  color: var(--gd-text);
+}
+
+.gd__live {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gd__live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3ecf8e;
+}
+
+/*
+ * Tuval kutusu: flex-basis 0 olmalı. "auto" iken kutu İÇERİKLE büyüyordu;
+ * kâğıt boyutu bu kutunun ölçüsünden hesaplandığı için yakınlaştırma
+ * kendi kendini besleyen bir döngüye giriyor ve sahne merkezden kayıyordu.
+ */
+.gd__artboard {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  border-radius: 8px;
+  border: 1px solid var(--gd-line);
+  overflow: auto;
+  display: flex;
+  padding: 10px;
+}
+
+/* Kâğıt: yakınlaştırma bu kutunun piksel ölçüsüyle yapılır. */
+.gd__paper {
+  margin: auto;
+  flex: 0 0 auto;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.42);
+}
+
+/* Şeffaf zemin: damalı desen */
+.gd__paper--checker {
+  background-color: #4a4e57;
+  background-image:
+    linear-gradient(45deg, #3a3d45 25%, transparent 25%, transparent 75%, #3a3d45 75%),
+    linear-gradient(45deg, #3a3d45 25%, transparent 25%, transparent 75%, #3a3d45 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 9px 9px;
+}
+
+.gd__svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+  display: block;
+}
+
+.gd__svg--busy {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.gd__grid {
+  fill: none;
+  stroke: #b9c0cc;
+  stroke-width: 0.6;
+  stroke-opacity: 0.55;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* Kılavuz çizme modu: imleç belirgin olsun */
+.gd__svg--draw {
+  cursor: cell;
+}
+
+/* Taşıma modunda imleç kılavuz üstünde değişir; dışında normal boyama imleci */
+.gd__svg--grab {
+  cursor: grab;
+}
+
+/* Gezdirme modu (✋ / boşluk / orta tuş): el imleci */
+.gd__svg--pan,
+.gd__artboard--pan {
+  cursor: grab;
+}
+
+.gd__svg--pan:active,
+.gd__artboard--pan:active {
+  cursor: grabbing;
+}
+
+.gd__svg--grab:active {
+  cursor: grabbing;
+}
+
+.gd__draft {
+  fill: rgba(111, 140, 255, 0.12);
+  stroke: var(--gd-accent);
+  stroke-width: 1.4;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.gd__guide-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 10px;
+  letter-spacing: 1.1px;
+  color: var(--gd-dim);
+}
+
+.gd__guide-head span {
+  flex: 1 1 auto;
+}
+
+.gd__guide-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.gd__guide-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  padding: 0 6px 0 8px;
+  border-radius: 5px;
+  background: var(--gd-panel-2);
+  font-size: 11.5px;
+  color: var(--gd-text);
+}
+
+.gd__guide-list li span {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gd__mini {
+  border: 1px solid var(--gd-line-2);
+  background: transparent;
+  color: var(--gd-dim);
+  border-radius: 4px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gd__mini:hover {
+  color: var(--gd-text);
+  border-color: var(--gd-accent);
+}
+
+/* Kılavuz listesi satırı: tıklayınca sayısal düzenleyici açılır */
+.gd__guide-item--on {
+  outline: 1px solid var(--gd-accent);
+}
+
+.gd__guide-pick {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.gd__nums {
+  display: grid;
+  /* minmax(0,…): ızgara hücreleri içerikten küçülebilsin, taşma olmasın. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
+
+/* Toplu doldurma düğmeleri tam genişlik: metin asla kırpılmaz. */
+.gd__nums > .gd__btn {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.gd__nums label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gd-panel-2);
+  border: 1px solid var(--gd-line-2);
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 10.5px;
+  color: var(--gd-dim);
+}
+
+.gd__nums label span {
+  flex: 0 0 auto;
+}
+
+.gd__nums input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  color: var(--gd-text);
+  font-size: 12px;
+  text-align: right;
+  outline: none;
+}
+
+.gd__nums-wide {
+  grid-column: 1 / -1;
+}
+
+/* Üst çubuk: yakınlaştırma grubu ve ayırıcı */
+.gd__sep {
+  width: 1px;
+  height: 22px;
+  background: var(--gd-line-2);
+}
+
+.gd__zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--gd-panel-2);
+  border: 1px solid var(--gd-line-2);
+  border-radius: 7px;
+  padding: 2px 4px;
+}
+
+.gd__zoom button {
+  width: 26px;
+  height: 22px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--gd-text);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gd__zoom button:hover {
+  background: #2a2f38;
+}
+
+.gd__zoom .gd__zoom-pct {
+  width: auto;
+  min-width: 54px;
+  font-size: 11.5px;
+  color: var(--gd-dim);
+}
+
+.gd__zoom .gd__zoom-pan {
+  font-size: 13px;
+  color: var(--gd-dim);
+}
+
+.gd__zoom .gd__zoom-pan--on {
+  background: var(--gd-accent);
+  color: #0d1017;
+}
+
+/* Seçili kılavuz tuvalde belirginleşir */
+.gd__circle--on,
+.gd__diagonal--on {
+  stroke: var(--gd-accent);
+  stroke-opacity: 1;
+  stroke-width: 1.6;
+}
+
+.gd__note--active {
+  color: #cfd8ff;
+}
+
+.gd__circle {
+  fill: none;
+  stroke: #7f8ea3;
+  stroke-width: 0.9;
+  stroke-opacity: 0.7;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.gd__diagonal,
+.gd__cross line {
+  stroke: #c98ab0;
+  stroke-width: 0.8;
+  stroke-opacity: 0.55;
+  stroke-dasharray: 6 4;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.gd__hover {
+  fill: rgba(111, 140, 255, 0.28);
+  stroke: var(--gd-accent);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.gd__hover--filled {
+  fill: rgba(224, 32, 32, 0.22);
+  stroke: #e02020;
+}
+
+/* Seçili kılavuzun tutamakları (boyut/yarıçap sürüklemesi) */
+.gd__handle {
+  fill: #ffffff;
+  stroke: var(--gd-accent);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* Yarıçap etiketi */
+.gd__handle-label {
+  fill: var(--gd-accent);
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: #0d1017;
+  stroke-width: 3px;
+  pointer-events: none;
+}
+
+/* Shift + sürükle alan seçimi */
+.gd__area {
+  fill: rgba(111, 140, 255, 0.16);
+  stroke: var(--gd-accent);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.gd__stage-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11.5px;
+  color: var(--gd-dim);
+}
+
+.gd__stage-foot span:last-child {
+  margin-left: auto;
+}
+
+.gd__stage-foot strong {
+  color: var(--gd-text);
+}
+
+/* ----------------------------------------------------------- sağ panel */
+
+.gd__preview {
+  border-radius: 8px;
+  border: 1px solid var(--gd-line-2);
+  min-height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.gd__preview img {
+  max-width: 100%;
+  max-height: 130px;
+  display: block;
+}
+
+.gd__preview span {
+  font-size: 12px;
+  color: var(--gd-dim);
+}
+
+.gd__note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--gd-dim);
+}
+
+.gd__note strong {
+  color: var(--gd-text);
+}
+
+.gd__btnrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gd__btnrow .gd__btn {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gd__help {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--gd-dim);
+}
+
+.gd__help li {
+  margin-bottom: 3px;
+}
+
+/* ------------------------------------------------------------- alt bar */
+
+.gd__status {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  background: var(--gd-panel);
+  border-top: 1px solid var(--gd-line);
+  font-size: 11.5px;
+  color: var(--gd-dim);
+}
+
+.gd__status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gd-accent);
+}
+
+.gd__spacer {
+  margin-left: auto;
+}
+
+/* ------------------------------------------- Vector Studio mod geçişi */
+
+.modebar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: #14161a;
+  border-bottom: 1px solid #2c313a;
+  font-size: 12px;
+  color: #98a0ac;
+}
+
+.modebar__back {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid #3a4049;
+  background: #20242b;
+  color: #e8e6e1;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.modebar__back:hover {
+  background: #2a2f38;
+}
+
+.modebar__label {
+  letter-spacing: 0.6px;
+}
+
+/* ------------------------------------------------------------ dar ekran */
+
+@media (max-width: 1500px) {
+  .gd__body {
+    /* Sol panel 230px'te sayısal alanlar ve araç düğmeleri sığmıyordu. */
+    grid-template-columns: 262px minmax(0, 1fr) 252px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .gd__body {
+    grid-template-columns: 236px minmax(0, 1fr);
+  }
+
+  .gd__panel--right {
+    display: none;
+  }
+}
