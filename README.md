@@ -48,13 +48,14 @@ gh repo edit oktaycosar/circle-grid-logo-builder --visibility public --accept-vi
 Arayüzden: **Settings → General → Danger Zone → Change visibility → Public**.
 İşlem geri alınabilir; tekrar private yapılırsa site yayından kalkar.
 
-> ℹ️ **Telifli referans malzemesi depodan çıkarıldı (22.09.2026):** Üçüncü taraf bir
-> eğitim videosu ve ondan çıkarılan kare setleri (`*.mp4`, `video_frames/`,
-> `video2_frames/`, `*_contact.jpg/png`) hem çalışma ağacından hem de **git
-> geçmişinden** temizlendi (`git filter-branch` + gc + force-push). Depo bu nedenle
-> ~21 MB'tan ~3 MB'a indi. Kopyalar depo dışında duruyor:
+> ℹ️ **Telifli referans malzemesi depodan çıkarıldı (22.09.2026):** Üçüncü taraf
+> eğitim videoları ve onlardan çıkarılan ekran kareleri (`*.mp4`, `frames/`,
+> `video_frames/`, `video2_frames/`, `*_contact.jpg/png` — toplam 70 dosya) hem
+> çalışma ağacından hem de **git geçmişinden** temizlendi (`git filter-branch` +
+> `gc` + force-push). Depo bu nedenle 21.7 MB'tan **297 KiB**'a (132 → 63 takipli
+> dosya) indi. Kopyalar depo dışında duruyor:
 > `Desktop\Harness_Genel_26\logo_proje_video_referans\` — yalnızca yerel referans
-> olarak kullanın, tekrar commit etmeyin.
+> olarak kullanın, tekrar commit etmeyin (`.gitignore` ile korunuyor).
 
 ### Yol B (önerilen): kaynak private kalsın, yalnızca site yayınlansın
 

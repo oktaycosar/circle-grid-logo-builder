@@ -16,6 +16,7 @@ coverage/
 # Telifli referans malzemesi — yerelde kalır, depoya girmez (22.09.2026)
 # Kopyalar: Desktop\Harness_Genel_26\logo_proje_video_referans\
 *.mp4
+frames/
 video_frames/
 video2_frames/
 video_contact.jpg
