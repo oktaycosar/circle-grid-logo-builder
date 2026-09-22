@@ -60,22 +60,49 @@ için **ÇIKTI → `⭳ Tasarımı indir (JSON)`** ile dosyayı alıp yeni yerde
 **`⭱ Tasarım yükle (JSON)`** ile açın (ızgara + kılavuzlar + dolgular + stil
 tek dosyada; yükleme tek adımda `Ctrl+Z` ile geri alınır).
 
-### Masaüstü `.exe` yapmak
+### Masaüstü `.exe` (Elektron) — kuruldu ve doğrulandı
 
-Uygulama statik + göreli yollarla çalıştığı için üç yol var:
+```bash
+npm run desktop        # kaynaktan masaüstü penceresinde çalıştır
+npm run desktop:smoke  # açılış doğrulaması yap ve çık (test)
+npm run desktop:dir    # release/win-unpacked/LogoStudio.exe  (klasör sürümü, hızlı)
+npm run desktop:exe    # release/LogoStudio-portable.exe      (tek dosya, kurulumsuz)
+```
 
-| Yol | Ne yapar | Gereksinim | Boyut |
-|-----|----------|-----------|-------|
-| **Elektron** | Gerçek `.exe` (kurulum + portable) | `npm i -D electron electron-builder` | ~150 MB |
-| **Tauri** | Küçük `.exe`, sistem WebView2 kullanır | Rust + WebView2 | ~5–10 MB |
-| **Launcher** | `.bat` yerel statik sunucu açar + tarayıcı | — (Node var) | ~0 |
+Üretilen artifact: **`LogoStudio-portable.exe`, 96 MB** — çift tıkla açılır,
+kurulum ve sunucu gerekmez. Kabuk (`electron/main.cjs`) pencereyi
+`dist/index.html`'den yükler; Node entegrasyonu kapalı
+(`contextIsolation: true, nodeIntegration: false, sandbox: true`), dış
+bağlantılar varsayılan tarayıcıda açılır, kayıt Electron'un kullanıcı verisi
+klasöründe kalıcıdır.
 
-Elektron iskeleti (özet): `main.js` içinde `new BrowserWindow()` +
-`win.loadFile('dist/index.html')`, `package.json`'a
-`"build": { "appId": "...", "files": ["dist/**", "main.js"] }` ve
-`"dist": "electron-builder --win portable"`. Tauri’de `tauri.conf.json`
-`build.frontendDist = "../dist"` ve `devUrl` boş bırakılır.
-Zorunlu ön koşul yok: her iki yol da `dist/` klasörünü olduğu gibi kullanır.
+Doğrulama (`desktop:smoke`, hem kaynakta hem paketlenmiş exe'de çalıştırıldı):
+
+```json
+{"mounted":true,"stage":true,"tools":true,"storage":true,"saved":false}
+```
+
+`mounted` = React bağlandı · `stage` = Grid Draw tuali çizildi · `tools` =
+`Serbest boyut` düğmesi pakette var · `storage` = `localStorage` çalışıyor.
+Sonuç `%TEMP%\logostudio-smoke.json` dosyasına da yazılır (Windows'ta
+gui alt sistemi exe'lerinin konsol çıktısı görünmez).
+
+> **`EPERM ... rename win-unpacked.tmp` alırsanız:** çıktı klasörü (ör.
+> OneDrive'a senkron Masaüstü) kilitleniyor demektir. Çıktıyı başka yola alın:
+> `npx electron-builder --win portable --config.directories.output=%LOCALAPPDATA%/LogoStudio/release`
+> (npm scripti: `desktop:exe:out`).
+
+> Özel ikon/ürün adı gömme kapalıdır (`win.signAndEditExecutable: false`) —
+> kod imzalama indirmesi gerektirmediği için hızlı kurulur; exe varsayılan
+> Electron ikonunu taşır, pencere başlığı ve uygulama adı `LogoStudio`'dur.
+
+> **Kayıt ayrıdır:** exe kendi deposunu tutar; tarayıcıdaki (`localhost:5180`)
+tasarımını görmek için önce **ÇIKTI → `⭳ Tasarımı indir (JSON)`** ile alıp
+exe'de **`⭱ Tasarım yükle (JSON)`** ile açın.
+
+Küçük boyut isteyenler için alternatif: **Tauri** (Rust + WebView2, ~5–10 MB)
+`tauri.conf.json` içinde `build.frontendDist = "../dist"` ile aynı statik
+çıktıyı kullanır.
 
 ---
 

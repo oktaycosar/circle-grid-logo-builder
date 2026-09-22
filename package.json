@@ -2,13 +2,20 @@
   "name": "circle-grid-logo-builder",
   "private": true,
   "version": "1.0.0",
+  "author": "oktaycosar",
   "type": "module",
+  "main": "electron/main.cjs",
   "description": "Geometric Logo Construction Studio - tarayıcı üzerinde çalışan vektör logo konstrüksiyon editörü",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.ts"
+    "test": "node --test tests/*.test.ts",
+    "desktop": "electron .",
+    "desktop:smoke": "electron . --smoke",
+    "desktop:dir": "npm run build && electron-builder --win --dir",
+    "desktop:exe": "npm run build && electron-builder --win portable",
+    "desktop:exe:out": "npm run build && electron-builder --win portable --config.directories.output=%LOCALAPPDATA%/LogoStudio/release"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -18,11 +25,34 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3",
     "linkedom": "^0.18.13",
     "typescript": "^5.6.3",
     "vite": "^5.4.11"
   },
   "allowScripts": {
     "esbuild@0.21.5": true
+  },
+  "build": {
+    "appId": "com.oktaycosar.circlegridlogobuilder",
+    "productName": "LogoStudio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "LogoStudio-portable.exe"
+    }
   }
 }
