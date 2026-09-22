@@ -3,7 +3,11 @@
 # main dalına her push'ta `npm run build` çalışır ve `dist/` klasörü
 # GitHub Pages'e yayımlanır. Electron aşaması burada ÇALIŞMAZ (yalnız web).
 #
-# Tek seferlik kurulum: depo → Settings → Pages → Source: "GitHub Actions".
+# Tek seferlik kurulum GEREKMEZ: Pages'i iş akışı kendisi etkinleştirir
+# (configure-pages → enablement: true), Settings'te elle "Source: GitHub Actions"
+# seçmek gerekmez. Tek koşul deponun public olması (ya da hesabın Pro/Team
+# olması); ücretsiz plan private depoda Pages'i desteklemez. Depo private
+# kaldığı sürece yayımlama adımı uyarı vererek atlanır, CI kırmızı olmaz.
 name: Deploy to GitHub Pages
 
 on:
@@ -25,6 +29,8 @@ jobs:
   build:
     name: Derle (vite build)
     runs-on: ubuntu-latest
+    outputs:
+      pages: ${{ steps.pages_state.outputs.ok }}
     steps:
       - name: Depoyu al
         uses: actions/checkout@v4
@@ -50,14 +56,30 @@ jobs:
       - name: Üretim derlemesi (dist/)
         run: npm run build
 
+      # GitHub Pages, ücretsiz planda yalnızca PUBLIC depolar için açılabilir;
+      # private depo için GitHub Pro/Team gerekir. Depo private olduğu sürece bu
+      # adım hata verir: `continue-on-error` sayesinde iş akışı kırmızı olmaz ve
+      # yayımlama adımı atlanır. Depo public yapıldığında adım başarılı olur,
+      # Pages otomatik etkinleşir ve site yayına girer — başka işlem gerekmez.
       - name: Sayfaları hazırla
+        id: pages_setup
+        continue-on-error: true
         uses: actions/configure-pages@v5
         with:
-          # Pages henüz etkinleştirilmemişse bu adım "Source: GitHub Actions"
-          # olarak açar; böylece Settings → Pages'te elle işlem gerekmez.
           enablement: true
 
+      - name: Pages kullanılabilir mi?
+        id: pages_state
+        run: |
+          if [ "${{ steps.pages_setup.outcome }}" = "success" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Pages kapalı::Bu depo private ve plan ücretsiz olduğu için GitHub Pages açılamadı. Yayına almak için: Settings > General > Danger Zone > Change visibility > Public."
+          fi
+
       - name: Artifact yükle
+        if: steps.pages_state.outputs.ok == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -65,6 +87,7 @@ jobs:
   deploy:
     name: Yayımla
     needs: build
+    if: needs.build.outputs.pages == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

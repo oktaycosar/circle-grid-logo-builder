@@ -27,6 +27,26 @@ Kurulum gerektirmeyen tarayıcı sürümü:
 `npm test` + `npm run build` çalıştırır ve `dist/` klasörünü yayımlar. Yerelde
 `npm run build` sonrası `dist/` içeriğini elle yüklemek de mümkündür.
 
+### Yayına almak için tek koşul: depo görünürlüğü
+
+GitHub Pages **ücretsiz planda yalnızca public depolar** için açılabilir (private
+depoda Pages için GitHub Pro/Team gerekir; API hatası:
+`Your current plan does not support GitHub Pages for this repository`). Depo
+private kaldığı sürece iş akışı testleri ve derlemeyi sorunsuz çalıştırır,
+yayımlama adımını **uyarı vererek atlar** — yani CI kırmızı olmaz.
+
+Yayına almak için depoyu public yapmak yeterlidir; Pages'i iş akışı kendisi
+etkinleştirir ve site birkaç dakika içinde açılır:
+
+```powershell
+gh repo edit oktaycosar/circle-grid-logo-builder --visibility public --accept-visibility-change-consequences
+```
+
+Arayüzden: **Settings → General → Danger Zone → Change visibility → Public**.
+İşlem geri alınabilir; tekrar private yapılırsa site yayından kalkar. Depoyu
+private tutup siteyi yayınlamak isterseniz alternatifler: **Cloudflare Pages**,
+**Netlify** veya **Vercel** (ücretsiz planları private depo destekler).
+
 > Sayfa `https://` üzerinden açıldığı için tarayıcı deposu `file://` ve
 > `localhost` kopyalarından ayrıdır — tasarımlar arasında geçiş için
 > **ÇIKTI → Tasarımı indir/yükle (JSON)** kullanın.
