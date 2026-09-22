@@ -1,0 +1,73 @@
+# Circle Grid Logo Builder — GitHub Pages otomatik yayın
+#
+# main dalına her push'ta `npm run build` çalışır ve `dist/` klasörü
+# GitHub Pages'e yayımlanır. Electron aşaması burada ÇALIŞMAZ (yalnız web).
+#
+# Tek seferlik kurulum: depo → Settings → Pages → Source: "GitHub Actions".
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Aynı dalda üst üste push olursa eski çalıştırmayı iptal et.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Derle (vite build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      - name: Node 20 kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Bağımlılıkları kur
+        run: npm ci
+        env:
+          # Masaüstü paketi burada gerekli değil: ~150 MB'lık Electron
+          # ikilisini indirmeyi atla (CI süresini ciddi kısaltır).
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Testleri çalıştır
+        run: npm test
+
+      - name: Üretim derlemesi (dist/)
+        run: npm run build
+
+      - name: Sayfaları hazırla
+        uses: actions/configure-pages@v5
+        with:
+          # Pages henüz etkinleştirilmemişse bu adım "Source: GitHub Actions"
+          # olarak açar; böylece Settings → Pages'te elle işlem gerekmez.
+          enablement: true
+
+      - name: Artifact yükle
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Yayımla
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Pages'e dağıt
+        id: deployment
+        uses: actions/deploy-pages@v4

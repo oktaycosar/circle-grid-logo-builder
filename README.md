@@ -17,6 +17,22 @@ hatırlanır.
 
 ---
 
+## Canlı demo (GitHub Pages)
+
+Kurulum gerektirmeyen tarayıcı sürümü:
+
+**https://oktaycosar.github.io/circle-grid-logo-builder/**
+
+`main` dalına yapılan her push'ta `.github/workflows/deploy-pages.yml` iş akışı
+`npm test` + `npm run build` çalıştırır ve `dist/` klasörünü yayımlar. Yerelde
+`npm run build` sonrası `dist/` içeriğini elle yüklemek de mümkündür.
+
+> Sayfa `https://` üzerinden açıldığı için tarayıcı deposu `file://` ve
+> `localhost` kopyalarından ayrıdır — tasarımlar arasında geçiş için
+> **ÇIKTI → Tasarımı indir/yükle (JSON)** kullanın.
+
+---
+
 ## Çalıştırma
 
 ```bash
