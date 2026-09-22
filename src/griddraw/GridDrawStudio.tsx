@@ -524,6 +524,9 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
           setZoom(1);
         } else if (lower === 'f') {
           setGuideTool('none');
+          // Boyama moduna geçiş gezdirme modunu kapatır: ✋ açıkken tıklama
+          // sahneyi kaydırır ve kullanıcı "neden boyayamıyorum?" durumunda kalır.
+          setPanMode(false);
           setPaintTool('fill');
         } else if (lower === 'h') {
           setGuideTool('none');
@@ -534,8 +537,10 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
           setSpaceDown(true);
         } else if (lower === 'e') {
           setGuideTool('none');
+          setPanMode(false);
           setPaintTool('erase');
         } else if (lower === 'm') {
+          setPanMode(false);
           setGuideTool((t) => (t === 'move' ? 'none' : 'move'));
         } else if (event.key.startsWith('Arrow') && nudgeRef.current(event.key, event.shiftKey)) {
           event.preventDefault();
@@ -1292,6 +1297,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
             className={paintTool === 'fill' && guideTool === 'none' ? 'gd__btn gd__btn--primary' : 'gd__btn'}
             onClick={() => {
               setGuideTool('none');
+              setPanMode(false);
               setPaintTool('fill');
               setStatus('Doldur (F): gözün üstüne tıklayın ya da sürükleyin.');
             }}
@@ -1304,6 +1310,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
             className={paintTool === 'erase' && guideTool === 'none' ? 'gd__btn gd__btn--primary' : 'gd__btn'}
             onClick={() => {
               setGuideTool('none');
+              setPanMode(false);
               setPaintTool('erase');
               setStatus('Boşalt (E): tıklayın ya da sürükleyin — dolgular silinir.');
             }}
@@ -1417,6 +1424,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
               type="button"
               className={guideTool === 'circle' ? 'gd__btn gd__btn--primary' : 'gd__btn'}
               onClick={() => {
+                setPanMode(false);
                 setGuideTool((t) => (t === 'circle' ? 'none' : 'circle'));
                 setStatus('Daire: merkezden dışa sürükleyin — istediğiniz yarıçapta. Esc = bitir.');
               }}
@@ -1427,6 +1435,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
               type="button"
               className={guideTool === 'line' ? 'gd__btn gd__btn--primary' : 'gd__btn'}
               onClick={() => {
+                setPanMode(false);
                 setGuideTool((t) => (t === 'line' ? 'none' : 'line'));
                 setStatus('Çizgi: baştan sona sürükleyin — istediğiniz uzunluk ve açıda. Esc = bitir.');
               }}
@@ -1437,6 +1446,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
               type="button"
               className={guideTool === 'move' ? 'gd__btn gd__btn--primary' : 'gd__btn'}
               onClick={() => {
+                setPanMode(false);
                 setGuideTool((t) => (t === 'move' ? 'none' : 'move'));
                 setStatus('Taşı (M): çizdiğiniz dairenin çemberine/çizginin üzerine basıp sürükleyin.');
               }}
@@ -1941,7 +1951,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
             <span>Silüet: {mergedInfo}</span>
             <span>
               {panMode || spaceDown
-                ? 'Gezdirme: sürükleyin · H veya Esc = bitir'
+                ? 'Gezdirme açık: tıklama sahneyi kaydırır — boyamak için ✋ kapatın (H) ya da F/E'
                 : guideTool === 'move'
                   ? 'Kılavuza basıp sürükleyin · dışına basarsanız boyarsınız · ok tuşları = ince ayar'
                   : guideTool !== 'none'

@@ -179,6 +179,11 @@ yenileseniz de dolgular geri gelir. Eski anahtar ve eski biçim kayıtlar
 - **Elle gezdirme:** `✋` düğmesi (kısayol **H**), **boşluk** + sürükle veya
   **orta tuş** + sürükle. Tekerlek = dikey kaydırma, `Shift` + tekerlek = yatay.
   Gezdirme sırasında boyama/çizim devreye girmez.
+- **Gezdirme modunda takılı kalmak imkânsız:** bir araç seçmek (`✚ Doldur`,
+  `⊖ Boşalt`, `◯ Daire`, `╱ Çizgi`, `✥ Taşı`) ya da `F` / `E` / `M`
+  kısayolunu kullanmak gezdirme modunu **otomatik kapatır**. Ayrıca gezdirme
+  açıkken tuvalin altındaki satır bunu açıkça söyler: "Gezdirme açık: tıklama
+  sahneyi kaydırır — boyamak için ✋ kapatın (H) ya da F/E".
 - Ölçülen: `720,720` noktası 100% → 195% arasında ekranda **tam aynı yerde**
   kaldı (591,347); `Ctrl`+tekerlek ile imleç altındaki nokta **0 px** kaydı.
 
