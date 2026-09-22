@@ -167,6 +167,15 @@ bölgesinin köşeleri raster yaklaşıklığıyla değil tam noktada oturur.
 Ölçülen: `1040×520` + `520×1040` elipsler → lens köşesi `(952.55, 952.55)`;
 analitik değer `232.589` → sapma **0.04 birim** (raster yolunda ~1–2 birim).
 
+**Sayısal ince ayar:** listeden daireyi seçince sağdaki panelde `X`, `Y`,
+`Yarıçap` yanında **`Genişlik`** ve **`Yükseklik`** alanları da vardır: bu iki
+alan eksenleri **bağımsız** yazar (yalnız ilgili eksenin ölçeği değişir, merkez
+sabit kalır, karşı kenarlar simetrik oynar). `Yarıçap` ise **her iki ekseni
+birlikte** ölçekler. Elips hâlindeyken `◯ Daireye döndür` düğmesi iki ekseni
+eşitleyip şekli yeniden tam daire yapar. Ölçülen: `Genişlik = 1000` yazınca
+`sx 1.285347` (= 1000/778), `r 389` sabit, etiket `◯ 1000×778` → düğme ile
+geri `◯ r 389`.
+
 **Tutamaklar (boyutla oynama):** listeden bir kılavuz seçince tuvalde tutamak
 çıkar — dairede **yarıçap** (sağdaki kare), çizgide **iki uç**. Tutamağı
 sürüklerken yalnızca önizleme güncellenir (plan yeniden kurulmaz, donma

@@ -17,6 +17,7 @@ import {
   mergeFilledRegions,
   mirrorRegions,
   normalizeSettings,
+  MIN_CIRCLE_SIDE,
   regionsInDisc,
   regionsInRect,
   regionsOnSide,
@@ -715,6 +716,17 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
         return next;
       }),
     });
+  };
+
+  /**
+   * Elipsin bir eksen çapını (genişlik ya da yükseklik) sayısal olarak ayarlar.
+   * Yalnızca o eksenin ölçeği değişir; merkez sabit kalır, karşı kenarlar simetrik oynar.
+   */
+  const setCircleSpan = (guide: GuideCircle, axis: 'x' | 'y', value: number) => {
+    if (!Number.isFinite(value)) return;
+    const span = Math.max(MIN_CIRCLE_SIDE, value);
+    const scale = span / 2 / Math.max(MIN_GUIDE_RADIUS, guide.r);
+    updateCircle(guide.id, axis === 'x' ? { sx: scale } : { sy: scale });
   };
 
   /** Çizgiyi sayısal olarak düzenler. */
@@ -1802,8 +1814,39 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
                           min={MIN_GUIDE_RADIUS}
                           value={round2(edited.r)}
                           onChange={(e) => updateCircle(edited.id, { r: Number(e.target.value) })}
+                          title="Yarıçap HER İKİ ekseni birlikte ölçekler; tek ekseni oynatmak için Genişlik/Yükseklik kullanın"
                         />
                       </label>
+                      <label>
+                        <span>Genişlik</span>
+                        <input
+                          type="number"
+                          min={MIN_CIRCLE_SIDE}
+                          value={round2(2 * edited.r * (edited.sx ?? 1))}
+                          onChange={(e) => setCircleSpan(edited, 'x', Number(e.target.value))}
+                          title="Yatay çap — yalnızca sol/sağ kenarları bağımsız oynatır (elips)"
+                        />
+                      </label>
+                      <label>
+                        <span>Yükseklik</span>
+                        <input
+                          type="number"
+                          min={MIN_CIRCLE_SIDE}
+                          value={round2(2 * edited.r * (edited.sy ?? 1))}
+                          onChange={(e) => setCircleSpan(edited, 'y', Number(e.target.value))}
+                          title="Dikey çap — yalnızca üst/alt kenarları bağımsız oynatır (elips)"
+                        />
+                      </label>
+                      {Math.abs((edited.sx ?? 1) - (edited.sy ?? 1)) > 1e-6 && (
+                        <button
+                          type="button"
+                          className="gd__btn gd__nums-wide"
+                          onClick={() => updateCircle(edited.id, { sx: 1, sy: 1 })}
+                          title="İki ekseni eşitler: elipsi yeniden tam daire yapar"
+                        >
+                          ◯ Daireye döndür
+                        </button>
+                      )}
                     </>
                   ) : (
                     <>
