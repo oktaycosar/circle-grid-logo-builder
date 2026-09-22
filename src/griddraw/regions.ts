@@ -125,6 +125,65 @@ export function centerCrossLines(size: number): GuideLine[] {
   return [lineGuide({ x: c, y: 0 }, { x: c, y: size }), lineGuide({ x: 0, y: c }, { x: size, y: c })];
 }
 
+/**
+ * Hazır ızgara (başlangıç şablonu): yalnızca **ızgara + kılavuz** tanımıdır.
+ * Dolgu içermez; şablon uygulandığında tuval boş gelir, boyamaya hazırdır.
+ */
+export interface GridPreset {
+  id: string;
+  label: string;
+  hint: string;
+  /** Artboard kenarından ızgara ve kılavuzları üretir. */
+  build: (size: number) => { grid: number; guides: GuideShape[] };
+}
+
+/**
+ * Logonun sistemi: 4 daire sağda, 4 daire solda — hepsi ORTAK MERKEZLİ.
+ *
+ * Merkezler artboard merkezinden (±2, 0) hücre; yarıçaplar 2, 3, 4 ve 5 hücre.
+ * Bu dizilimde şeklin bütün sınırları ızgara çizgisi ya da bu dairelerin yayı
+ * olur (logonun tepe noktası r=4 dairelerinin kesişimi, kase dibi r=3
+ * dairelerinin altı, kanat uçları r=3 dairelerinin uçlarıdır).
+ */
+export function concentricFan(size: number, grid = 14): { grid: number; guides: GuideShape[] } {
+  const cell = size / grid;
+  const guides: GuideShape[] = [];
+  for (const side of [-1, 1]) {
+    for (const k of [2, 3, 4, 5]) {
+      guides.push(circleGuide(size / 2 + side * 2 * cell, size / 2, k * cell));
+    }
+  }
+  return { grid, guides };
+}
+
+/** Sol paneldeki HAZIR GRIDLER listesi (ilk sıradaki logonun sistemidir). */
+export const GRID_PRESETS: GridPreset[] = [
+  {
+    id: 'sekiz-daire',
+    label: '◉ Sekiz daire',
+    hint: '14×14 · ortak merkezli 4+4 daire (logonun sistemi)',
+    build: (size) => concentricFan(size, 14),
+  },
+  {
+    id: 'es-merkezli',
+    label: '◯ Üç eş merkezli daire',
+    hint: '24×24 · klasik oranlı eş merkezli daireler',
+    build: (size) => ({ grid: 24, guides: centerCircles(size, 3) }),
+  },
+  {
+    id: 'kose-caprazlari',
+    label: '╳ Köşe çaprazları',
+    hint: '24×24 · köşeden köşeye X',
+    build: (size) => ({ grid: 24, guides: cornerDiagonals(size) }),
+  },
+  {
+    id: 'merkez-arti',
+    label: '＋ Merkez artı',
+    hint: '24×24 · merkezden geçen dikey + yatay',
+    build: (size) => ({ grid: 24, guides: centerCrossLines(size) }),
+  },
+];
+
 /** İki kılavuz şeklinin geometrik olarak aynı olup olmadığı. */
 function sameGuide(a: GuideShape, b: GuideShape): boolean {
   if (a.id !== b.id || a.kind !== b.kind) return false;

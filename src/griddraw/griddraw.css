@@ -194,6 +194,38 @@
   font-weight: 600;
 }
 
+/* Hazır grid (başlangıç şablonu) kartları: başlık + tek satır açıklama */
+.gd__preset {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--gd-line-2);
+  background: var(--gd-panel-2);
+  color: var(--gd-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.gd__preset:hover {
+  background: #2a2f38;
+  border-color: var(--gd-accent);
+}
+
+.gd__preset-label {
+  font-size: 12.5px;
+  line-height: 1.25;
+}
+
+.gd__preset-hint {
+  font-size: 10.5px;
+  color: var(--gd-dim);
+  line-height: 1.25;
+}
+
 .gd__wide {
   width: 100%;
   height: 30px;

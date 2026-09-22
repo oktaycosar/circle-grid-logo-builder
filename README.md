@@ -104,6 +104,30 @@ kaç parçaya bölündüğünü belirler:
 
 Görünüm için aşağıdaki "Görünüm: yakınlaştırma ve gezdirme" bölümüne bakın.
 
+### Hazır gridler (başlangıç şablonları)
+
+Sol paneldeki **HAZIR GRIDLER**, ızgara + kılavuz takımını tek tıkla kurar.
+Dolgu **koymaz**: tuval boş açılır, aynı sistemin üzerinde kendi logonuzu
+çizersiniz. Şablon uygulamak geri alınabilir bir adımdır (`Ctrl+Z`).
+
+| Şablon | Kurduğu sistem |
+|--------|----------------|
+| ◉ **Sekiz daire** | 14×14 ızgara + ortak merkezli **4+4 daire** (logonun konstrüksiyonu) |
+| ◯ Üç eş merkezli daire | 24×24 + klasik oranlı eş merkezli daireler |
+| ╳ Köşe çaprazları | 24×24 + köşeden köşeye X |
+| ＋ Merkez artı | 24×24 + merkezden geçen dikey/yatay |
+
+**"Sekiz daire"** logonun çözülen sistemidir: merkezler artboard merkezinden
+**(±2, 0) hücre**, yarıçaplar **2 / 3 / 4 / 5 hücre**. Şeklin bütün sınırları
+ızgara çizgisi ya da bu dairelerin yayı olur — tepe r=4 dairelerinin kesişimi
+(−3,46 hücre), kase dibi r=3 dairelerinin altı (+3), kanat uçları r=3
+dairelerinin uçları (±5). Bu şablon **392 göz** üretir ve
+`tests/griddraw-output.test.ts` içinde denetlenir.
+
+Şablonun uygulanması, planı boşuna yeniden kurmaz: geri alma kararı
+**geometri imzasına** bakar (kılavuz kimlikleri değil, yalnızca şekil). İmza
+aynıysa plan geçerli kalır ve dolgular doğrudan geri konur.
+
 Kısayollar: `F` doldur · `E` boşalt · `M` taşı · `H` gezdir · `Shift`+sürükle
 = alan seçimi · `Ctrl+Z` geri al · `Ctrl+Shift+Z` ileri al ·
 `+` / `−` / `0` yakınlaştırma · `boşluk`+sürükle = sahneyi kaydır ·

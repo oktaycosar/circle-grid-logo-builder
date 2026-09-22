@@ -4,6 +4,7 @@ import { buildPng } from '../core/export.ts';
 import { downloadFile } from '../core/persistence.ts';
 import {
   DEFAULT_GRID_DRAW,
+  GRID_PRESETS,
   MAX_DIVISIONS,
   MIRROR_LABELS,
   MIN_DIVISIONS,
@@ -23,9 +24,9 @@ import {
   regionAt,
   snapToGridPoint,
   strokeRegions,
-  structureChanged,
   type GridDrawPlan,
   type GridDrawSettings,
+  type GridPreset,
   type GuideCircle,
   type GuideLine,
   type GuideShape,
@@ -50,6 +51,24 @@ import './griddraw.css';
  *   • Komşu dolu gözler tek silüete indirilir; paylaşılan kenar ve anti-alias
  *     boşluğu tamamen kaybolur.
  */
+
+/**
+ * Ayarların GEOMETRİ imzası: kılavuz KİMLİKLERİ hariç yalnızca şekil.
+ *
+ * Plan yalnızca imza değişince yeniden kurulur. Hazır grid uygulamak gibi
+ * "aynı geometriyi yeni kimliklerle kurma" durumları imzayı değiştirmediği
+ * için plan boşuna yeniden hesaplanmaz ve geri alma dolguları doğrudan
+ * yerine koyar.
+ */
+function gridSignature(s: GridDrawSettings): string {
+  return [
+    s.grid,
+    s.size,
+    ...s.guides.map((g) =>
+      g.kind === 'circle' ? `c${g.cx},${g.cy},${g.r}` : `l${g.ax},${g.ay},${g.bx},${g.by}`,
+    ),
+  ].join('|');
+}
 
 const MAX_HISTORY = 200;
 const MIRROR_MODES: MirrorMode[] = ['none', 'x', 'y', 'quad'];
@@ -192,17 +211,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
   mirrorRef.current = mirror;
 
   // Kılavuz imzası: ayarlar değişince plan yeniden hesaplanır.
-  const signature = useMemo(
-    () =>
-      [
-        settings.grid,
-        settings.size,
-        ...settings.guides.map((g) =>
-          g.kind === 'circle' ? `c${g.cx},${g.cy},${g.r}` : `l${g.ax},${g.ay},${g.bx},${g.by}`,
-        ),
-      ].join('|'),
-    [settings],
-  );
+  const signature = useMemo(() => gridSignature(settings), [settings]);
 
   /** Kılavuz geometrisi — çizim, kenetleme ve tuval çizimi için ortak. */
   const guides = useMemo(() => guideGeometry(settings), [signature]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -465,12 +474,15 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
 
   const applySnapshotRef = useRef<(target: Snapshot) => void>(() => {});
   applySnapshotRef.current = (target) => {
-    if (structureChanged(settings, target.settings)) {
+    // Plan YALNIZCA geometri imzasına göre yeniden kurulur. İmza aynıysa
+    // (ör. hazır grid uygulandıktan sonra geri alma: aynı daireler, yeni
+    // kimlikler) plan hâlâ geçerlidir; dolgular doğrudan geri konur.
+    if (gridSignature(target.settings) === signature) {
+      setFills(new Set(target.fills));
+    } else {
       // Plan yeniden kurulacak; dolgular efekt içinde doğrudan uygulanır.
       restoreRef.current = new Set(target.fills);
       setSettings(target.settings);
-    } else {
-      setFills(new Set(target.fills));
     }
     lastPushRef.current = null;
   };
@@ -1212,6 +1224,27 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
     setStatus(`Ekran temizlendi — ${DEFAULT_GRID_DRAW.grid}×${DEFAULT_GRID_DRAW.grid} ızgara, kılavuz yok.`);
   };
 
+  /**
+   * HAZIR GRID uygular: ızgara + kılavuzlar gelir, dolgular temizlenir.
+   *
+   * Şablon bir BAŞLANGIÇTIR ("logo hariç"): tuval boş açılır, çizim/ boyama
+   * kullanıcıya kalır. Geri al ile şablon öncesi durum geri gelir.
+   */
+  const applyPreset = (preset: GridPreset) => {
+    const next = preset.build(settings.size);
+    pushHistory(`hazır ızgara:${preset.id}`);
+    setFills(new Set());
+    writeDraft(null);
+    writeMoving(null);
+    setSelectedGuide(null);
+    setGuideTool('none');
+    setSettings((current) => ({ ...current, grid: next.grid, guides: next.guides }));
+    setHistoryTick((t) => t + 1);
+    setStatus(
+      `${preset.label} yüklendi — ${next.grid}×${next.grid} ızgara, ${next.guides.length} kılavuz. Tuval boş: boyamaya hazır.`,
+    );
+  };
+
   // ------------------------------------------------------------ kılavuz
 
   const gridLinePath = useMemo(() => {
@@ -1356,6 +1389,26 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
           <p className="gd__note">
             Hücre <strong>{Math.round(guides.cell)}×{Math.round(guides.cell)}</strong> birim — kare. Kare hücre
             sayesinde köşe çaprazları her kareyi <strong>tam ikiye</strong> böler.
+          </p>
+
+          <label className="gd__label">HAZIR GRIDLER</label>
+          <div className="gd__presets">
+            {GRID_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className="gd__preset"
+                onClick={() => applyPreset(preset)}
+                title={`${preset.hint} — dolgular temizlenir, tuval boş açılır (geri alınabilir)`}
+              >
+                <span className="gd__preset-label">{preset.label}</span>
+                <span className="gd__preset-hint">{preset.hint}</span>
+              </button>
+            ))}
+          </div>
+          <p className="gd__note">
+            Hazır grid <strong>ızgara + kılavuzları</strong> kurar; dolgu koymaz. Böylece aynı sistemin üzerinde
+            <strong> kendi logonuzu</strong> çizersiniz. <strong>Ctrl+Z</strong> ile geri alınır.
           </p>
 
           <label className="gd__label">KILAVUZ ÇİZ / TAŞI</label>

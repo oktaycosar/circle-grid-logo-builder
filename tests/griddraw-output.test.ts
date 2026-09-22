@@ -18,11 +18,13 @@ import test from 'node:test';
 
 import {
   DEFAULT_GRID_DRAW,
+  GRID_PRESETS,
   MIRROR_LABELS,
   buildGridDrawPlan,
   centerCircles,
   centerCrossLines,
   circleGuide,
+  concentricFan,
   cornerDiagonals,
   guideGeometry,
   lineGuide,
@@ -34,6 +36,7 @@ import {
   type GridDrawPlan,
   type GridDrawSettings,
   type GridDrawGuides,
+  type GuideCircle,
   type MirrorMode,
 } from '../src/griddraw/regions.ts';
 import { DEFAULT_GRID_DRAW_STYLE, buildGridDrawSvg } from '../src/griddraw/gridDrawSvg.ts';
@@ -592,6 +595,58 @@ test('gd: ızgara çizgisi boyunca komşu iki göz birleşince iç çatlak kalma
     1,
     'ızgara duvarından arta kalan saç teli çatlak, delik olarak kalmamalı',
   );
+});
+
+test('gd: hazır gridler yalnızca ızgara + kılavuz tanımlar, dolgu içermez', () => {
+  assert.ok(GRID_PRESETS.length >= 3, 'birkaç hazır grid olmalı');
+  for (const preset of GRID_PRESETS) {
+    const next = preset.build(1440);
+    assert.deepEqual(Object.keys(next).sort(), ['grid', 'guides'], `${preset.id}: yalnızca grid+guides`);
+    assert.ok(preset.label.length > 0 && preset.hint.length > 0, `${preset.id}: etiket ve açıklama`);
+    const plan = buildGridDrawPlan(settings({ grid: next.grid, size: 1440, guides: next.guides }));
+    assert.ok(plan.regions.length >= 8, `${preset.id}: yeterli bölge yok (${plan.regions.length})`);
+  }
+});
+
+test('gd: "Sekiz daire" hazır gridi logonun konstrüksiyonudur', () => {
+  const preset = GRID_PRESETS.find((p) => p.id === 'sekiz-daire');
+  assert.ok(preset, 'sekiz-daire şablonu bulunmalı');
+
+  const size = 1440;
+  const next = preset!.build(size);
+  const cell = size / 14;
+  assert.equal(next.grid, 14);
+  assert.equal(next.guides.length, 8);
+
+  const circles = next.guides.filter((g): g is GuideCircle => g.kind === 'circle');
+  assert.equal(circles.length, 8);
+
+  // Merkezler artboard merkezinden (±2, 0) hücre
+  const centers = [...new Set(circles.map((c) => Math.round(c.cx)))].sort((a, b) => a - b);
+  assert.deepEqual(centers, [Math.round(size / 2 - 2 * cell), Math.round(size / 2 + 2 * cell)]);
+  for (const c of circles) assert.equal(Math.round(c.cy), size / 2, 'merkezler omuz çizgisinde (y = merkez)');
+
+  // Yarıçaplar 2, 3, 4 ve 5 hücre
+  const radii = [...new Set(circles.map((c) => Math.round(c.r)))].sort((a, b) => a - b);
+  assert.deepEqual(radii, [2, 3, 4, 5].map((k) => Math.round(k * cell)));
+
+  // Şablon planı, logonun göz sayısını verir
+  const plan = buildGridDrawPlan(settings({ grid: next.grid, size, guides: next.guides }));
+  assert.equal(plan.regions.length, 392, 'logonun planı 392 göz verir');
+  assert.equal(plan.guides.circles.length, 8);
+
+  // Dört kilit nokta konstrüksiyondan doğar:
+  // tepe = r=4 dairelerinin kesişimi (merkezden -3.464 hücre)
+  const r4 = circles.filter((c) => Math.abs(c.r - 4 * cell) < 1e-6);
+  assert.equal(r4.length, 2, 'iki r=4 dairesi olmalı');
+  const apexY = size / 2 - Math.sqrt((4 * cell) ** 2 - (2 * cell) ** 2);
+  assert.ok(Math.abs(apexY - (size / 2 - 3.464 * cell)) < 0.5, 'tepe merkezden -3.46 hücre');
+
+  // kase dibi = r=3 dairesinin altı (+3 hücre), kanat ucu = sağ ucu (±5 hücre)
+  const wing = circles.find((c) => c.cx > size / 2 && Math.abs(c.r - 3 * cell) < 1e-6);
+  assert.ok(wing, 'sağdaki r=3 dairesi bulunmalı');
+  assert.equal(Math.round(wing!.cy + wing!.r), Math.round(size / 2 + 3 * cell), 'kase dibi +3 hücre');
+  assert.equal(Math.round(wing!.cx + wing!.r), Math.round(size / 2 + 5 * cell), 'kanat ucu +5 hücre');
 });
 
 test('gd: merkez artısı kılavuzları da kusursuz bölge üretir', () => {
