@@ -84,6 +84,18 @@ const clampZoom = (value: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value
 
 /** Editörde kabul edilen en küçük kılavuz ölçüleri. */
 const MIN_GUIDE_RADIUS = 4;
+
+/**
+ * Tasarım dosyası (indir/yükle): kayıtla aynı biçim — ızgara + kılavuzlar +
+ * dolgular + çıktı stili. Tarayıcı deposu silinse bile iş kaybolmaz.
+ */
+interface DesignFile {
+  version: number;
+  settings: GridDrawSettings;
+  style?: GridDrawStyle;
+  mirror?: MirrorMode;
+  fills: number[];
+}
 const MIN_GUIDE_LENGTH = 8;
 
 /** Ondalığı iki basamağa yuvarlar. */
@@ -233,6 +245,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
   const [panning, setPanning] = useState(false);
   const artboardRef = useRef<HTMLDivElement | null>(null);
   const paperRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   /** Yakınlaştırma sırasında ekranda sabit kalacak nokta. */
   const zoomAnchorRef = useRef<{ u: number; v: number; sx: number; sy: number } | null>(null);
   const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
@@ -487,6 +500,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
         'İleri alındı',
         'Halka tazelendi',
         'Dolgu tazelendi',
+        'Tasarım yüklendi',
       ];
       setStatus((prev) =>
         actionMessages.some((prefix) => prev.startsWith(prefix))
@@ -1350,6 +1364,49 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
     setStatus('SVG indirildi — kılavuzlar çıktıya dahil edilmedi.');
   };
 
+  /** Tasarımı JSON olarak indirir (yedek, başka makineye/masaüstü sürüme taşıma). */
+  const exportDesign = () => {
+    const payload: DesignFile = { version: 2, settings, style, mirror, fills: [...fills] };
+    downloadFile(
+      `logo-tasarim-${new Date().toISOString().slice(0, 10)}.json`,
+      JSON.stringify(payload, null, 2),
+      'application/json',
+    );
+    setStatus(
+      `Tasarım indirildi: ${settings.grid}×${settings.grid} ızgara, ${settings.guides.length} kılavuz, ${fills.size} dolgu.`,
+    );
+  };
+
+  /** İndirilen tasarım JSON'unu yükler; tek adımda Ctrl+Z ile geri alınır. */
+  const importDesign = async (file: File) => {
+    try {
+      const raw = JSON.parse(await file.text()) as Partial<DesignFile>;
+      if (!raw || typeof raw !== 'object' || !raw.settings) throw new Error('eksik ayar');
+      const next = normalizeSettings(raw.settings);
+      const nextFills = new Set<number>(
+        (Array.isArray(raw.fills) ? raw.fills : []).filter((n): n is number => Number.isFinite(n)),
+      );
+      pushHistory('tasarım yükleme');
+      if (raw.style) setStyle({ ...DEFAULT_GRID_DRAW_STYLE, ...raw.style });
+      if (raw.mirror) setMirror(raw.mirror);
+      setSelectedGuide(null);
+      // Geometri aynıysa plan yeniden kurulmaz (imza değişmez) → dolgular
+      // doğrudan konur; farklıysa plan kurulurken uygulanır.
+      if (gridSignature(next) === gridSignature(settings)) {
+        setSettings(next);
+        setFills(nextFills);
+      } else {
+        restoreRef.current = nextFills;
+        setSettings(next);
+      }
+      setStatus(
+        `Tasarım yüklendi: ${next.grid}×${next.grid} ızgara, ${next.guides.length} kılavuz, ${nextFills.size} dolgu.`,
+      );
+    } catch {
+      setStatus('Tasarım yüklenemedi — geçerli bir tasarım JSON dosyası değil.');
+    }
+  };
+
   const [pngBusy, setPngBusy] = useState(false);
   const exportPng = async () => {
     if (!plan || !fills.size) {
@@ -1985,6 +2042,34 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
               />
             </div>
           )}
+
+          <button
+            type="button"
+            className="gd__wide"
+            onClick={exportDesign}
+            title="Izgara + kılavuzlar + dolgular + stil tek JSON dosyası olarak iner (yedek ve başka makineye taşıma)"
+          >
+            ⭳ Tasarımı indir (JSON)
+          </button>
+          <button
+            type="button"
+            className="gd__wide"
+            onClick={() => fileInputRef.current?.click()}
+            title="İndirdiğin tasarım JSON dosyasını yükler (Ctrl+Z ile geri alınır)"
+          >
+            ⭱ Tasarım yükle (JSON)
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) void importDesign(file);
+            }}
+          />
         </aside>
 
         {/* -------------------------------------------------------- tuval */}

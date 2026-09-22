@@ -30,12 +30,52 @@ npm run dev      # http://localhost:5180/
 Diğer komutlar:
 
 ```bash
-npm test         # node --test tests/*.test.ts  (138 test)
+npm test         # node --test tests/*.test.ts  (188 test)
 npm run build    # tsc -b && vite build  →  dist/
 npm run preview  # üretim derlemesini önizle
 ```
 
 Gereksinimler: Node 20+ (geliştirme Node 24 ile yapıldı), npm 10+.
+
+---
+
+## Sunucusuz çalıştırma (host gerekmez)
+
+`npm run build` sonrası `dist/` klasörü **tamamen statiktir** ve göreli
+(`./assets/...`) yollar kullanır — bu yüzden ikinci bir adım gerekmeden
+**doğrudan diskten** açılır:
+
+```
+dist/index.html   →  çift tıkla (Chrome/Edge) → uygulama tarayıcıda açılır
+```
+
+Doğrulandı: `file://` üzerinden açıldığında React uygulaması çalışır, çizim
+ve bölge motoru normal işler, `localStorage` çalışır (tasarım sekmede kalır).
+Sunucu/kurulum/ağ erişimi gerekmez; klasörü zip’leyip başka makineye de
+kopyalayabilirsiniz.
+
+**Önemli:** tarayıcı deposu **adrese (origin) bağlıdır**. `file://` ile açılan
+kopya, `http://localhost:5180`'deki kayıtlı tasarımı görmez. Bu yüzden taşımak
+için **ÇIKTI → `⭳ Tasarımı indir (JSON)`** ile dosyayı alıp yeni yerde
+**`⭱ Tasarım yükle (JSON)`** ile açın (ızgara + kılavuzlar + dolgular + stil
+tek dosyada; yükleme tek adımda `Ctrl+Z` ile geri alınır).
+
+### Masaüstü `.exe` yapmak
+
+Uygulama statik + göreli yollarla çalıştığı için üç yol var:
+
+| Yol | Ne yapar | Gereksinim | Boyut |
+|-----|----------|-----------|-------|
+| **Elektron** | Gerçek `.exe` (kurulum + portable) | `npm i -D electron electron-builder` | ~150 MB |
+| **Tauri** | Küçük `.exe`, sistem WebView2 kullanır | Rust + WebView2 | ~5–10 MB |
+| **Launcher** | `.bat` yerel statik sunucu açar + tarayıcı | — (Node var) | ~0 |
+
+Elektron iskeleti (özet): `main.js` içinde `new BrowserWindow()` +
+`win.loadFile('dist/index.html')`, `package.json`'a
+`"build": { "appId": "...", "files": ["dist/**", "main.js"] }` ve
+`"dist": "electron-builder --win portable"`. Tauri’de `tauri.conf.json`
+`build.frontendDist = "../dist"` ve `devUrl` boş bırakılır.
+Zorunlu ön koşul yok: her iki yol da `dist/` klasörünü olduğu gibi kullanır.
 
 ---
 
