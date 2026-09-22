@@ -158,6 +158,15 @@ doğrular (yalnız sürüklenen kenar hareket eder, ölçek 1'de silinir, elips
 planı daire planından farklı göz sayısı üretir, eski hâle dönüş bölgeleri
 bit bit korur).
 
+**Elips kesişimleri de analitiktir.** İki elipsin (ya da daire × elips)
+kesişimi kuartik çözüm gerektirmez: bir elips eksen bazlı ölçeklemeyle
+**birim çembere** indirgenir, diğeri aynı uzayda elips kalır; birim çemberin
+o elips denklemi `f(θ)` taranıp işaret değiştiren aralıklar ikiye bölünerek
+~1e-12 radyana kadar daraltılır. Böylece iki elipsin kesiştiği **lens**
+bölgesinin köşeleri raster yaklaşıklığıyla değil tam noktada oturur.
+Ölçülen: `1040×520` + `520×1040` elipsler → lens köşesi `(952.55, 952.55)`;
+analitik değer `232.589` → sapma **0.04 birim** (raster yolunda ~1–2 birim).
+
 **Tutamaklar (boyutla oynama):** listeden bir kılavuz seçince tuvalde tutamak
 çıkar — dairede **yarıçap** (sağdaki kare), çizgide **iki uç**. Tutamağı
 sürüklerken yalnızca önizleme güncellenir (plan yeniden kurulmaz, donma
@@ -220,7 +229,7 @@ bağlanmıştır (`tests/griddraw-output.test.ts` her birini denetler):
 | **Gereksiz nokta yok** | Douglas-Peucker + ortak-doğrusal temizliği (yinelemeli) |
 | Kenarlar **tam düz** | Düz kenarın tüm noktaları aynı doğruya oturduğu için tek parçaya iner |
 | **Zikzak / çentik yok** | Köpek bacağı temizliği + yakın köşe birleştirme + eksik köşe onarımı |
-| Köşeler **yuvarlama hatası taşımaz** | Kesişimler analitik hesaplanır: grid×grid, grid×daire, grid×çizgi, daire×daire, daire×çizgi, çizgi×çizgi |
+| Köşeler **yuvarlama hatası taşımaz** | Kesişimler analitik hesaplanır: grid×grid, grid×daire, grid×çizgi, daire×daire, daire×çizgi, çizgi×çizgi, **elips×elips** |
 | Yaylar **gerçek yay kalır** | Noktalar tam daire üzerine radyal oturtulur |
 | Dolu şeklin içinde **saç teli çatlak olmaz** | Duvar 3 örnek kalınlığında olduğu için birleştirmeden 1–2 örneklik kalıntı kalıyordu; iki yanı aynı parça olan kalıntılar o parçaya katılır (tuvalde ızgara çizgisi örttüğü için görünmez, temiz SVG/PNG çıktısında çatlak olarak çıkıyordu) |
 

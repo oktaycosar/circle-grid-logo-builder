@@ -910,11 +910,85 @@ function circleSegment(
   return nearestOf(points, near);
 }
 
+interface EllipseRef {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+}
+
+/**
+ * Elips × elips kesişimi (TAM analitik nokta, kuartik çözüm gerekmez).
+ *
+ * A elipsi eksen bazlı ölçeklemeyle **birim çembere** indirgenir; B aynı uzayda
+ * yine eksen hizalı bir elips olur. Sonra birim çemberin B elipsi denklemi
+ * `f(θ) = ((cosθ−ux)/p)² + ((sinθ−uy)/q)² − 1` taranır: işaret değiştiren her
+ * aralık ikiye bölünerek ~1e-12 radyana kadar daraltılır → kesişim noktaları
+ * raster yaklaşıklığı yerine tam olarak bulunur (elips logosunun köşeleri
+ * ızgara/elips üzerine tam oturur).
+ *
+ * Eş merkezli + aynı oran (çakışık ya da iç içe geçmiş) ise null döner.
+ */
+function ellipseEllipse(a: EllipseRef, b: EllipseRef, near: Vec2): Vec2 | null {
+  const ux = (b.cx - a.cx) / a.rx;
+  const uy = (b.cy - a.cy) / a.ry;
+  const p = b.rx / a.rx;
+  const q = b.ry / a.ry;
+  if (Math.abs(ux) < 1e-9 && Math.abs(uy) < 1e-9 && Math.abs(p - q) < 1e-9) return null;
+
+  const f = (t: number): number => {
+    const x = (Math.cos(t) - ux) / p;
+    const y = (Math.sin(t) - uy) / q;
+    return x * x + y * y - 1;
+  };
+
+  const TAU = Math.PI * 2;
+  const STEP = 1024;
+  const step = TAU / STEP;
+  const roots: number[] = [];
+  let prev = f(0);
+  for (let i = 1; i <= STEP; i++) {
+    const t = i * step;
+    const cur = f(t);
+    if (cur !== 0 && prev !== 0 && cur > 0 !== prev > 0) {
+      let lo = t - step;
+      let hi = t;
+      let flo = prev;
+      for (let k = 0; k < 48; k++) {
+        const mid = (lo + hi) / 2;
+        const fm = f(mid);
+        if (fm === 0) {
+          lo = mid;
+          hi = mid;
+          break;
+        }
+        if (fm > 0 === flo > 0) {
+          lo = mid;
+          flo = fm;
+        } else {
+          hi = mid;
+        }
+      }
+      roots.push((lo + hi) / 2);
+    }
+    prev = cur;
+  }
+  if (!roots.length) return null;
+
+  const points: Vec2[] = [];
+  for (const t of roots) {
+    const pt = { x: a.cx + a.rx * Math.cos(t), y: a.cy + a.ry * Math.sin(t) };
+    // Teğet durumunda aynı nokta iki kez çıkabilir: tekilleştir.
+    if (!points.some((u) => Math.hypot(u.x - pt.x, u.y - pt.y) < 1e-6)) points.push(pt);
+  }
+  return nearestOf(points, near);
+}
+
 /**
  * İki kılavuzun kesişimi; yoksa (paralel, eş merkezli, ayrık) null.
  *
  * Desteklenen tüm ikililer: grid×grid, grid×daire, grid×çizgi,
- * çizgi×çizgi, çizgi×daire, daire×daire.
+ * çizgi×çizgi, çizgi×daire, daire×daire, elips×elips.
  */
 function guideIntersection(a: GuideRef, b: GuideRef, near: Vec2): Vec2 | null {
   const pick = (kind: GuideRef['kind']): GuideRef | null =>
@@ -956,14 +1030,16 @@ function guideIntersection(a: GuideRef, b: GuideRef, near: Vec2): Vec2 | null {
   }
 
   if (a.kind === 'c' && b.kind === 'c' && a.circle && b.circle) {
-    // Elips × elips analitik olarak çözülmez (kuartik); raster + snapping
-    // devreye girer. Tam dairelerde eski davranış aynen sürer.
     const ca = a.circle;
     const cb = b.circle;
-    const aIsCircle = Math.abs(ca.rx - ca.ry) < 1e-9;
-    const bIsCircle = Math.abs(cb.rx - cb.ry) < 1e-9;
-    if (!aIsCircle || !bIsCircle) return null;
-    return circleCircle({ ...ca, r: ca.rx }, { ...cb, r: cb.rx }, near);
+    const aRound = Math.abs(ca.rx - ca.ry) < 1e-9;
+    const bRound = Math.abs(cb.rx - cb.ry) < 1e-9;
+    // İki TAM daire: klasik analitik çözüm (davranış aynen sürer).
+    if (aRound && bRound) {
+      return circleCircle({ cx: ca.cx, cy: ca.cy, r: ca.rx }, { cx: cb.cx, cy: cb.cy, r: cb.rx }, near);
+    }
+    // En az biri elips: genel çözüm (A birim çembere indirgenir).
+    return ellipseEllipse(ca, cb, near);
   }
 
   if (circle?.circle && line?.seg) {

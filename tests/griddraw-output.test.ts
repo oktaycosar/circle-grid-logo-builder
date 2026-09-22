@@ -408,7 +408,11 @@ function guidesAt(p: Vec2, g: GridDrawGuides, tol = 0.05): string[] {
   if (jh >= 0 && jh <= g.rows && Math.abs(p.y - jh * g.cellH) <= tol) out.push(`h${jh}`);
 
   for (const circle of g.circles) {
-    if (Math.abs(Math.hypot(p.x - circle.cx, p.y - circle.cy) - circle.r) <= tol) out.push(`c${circle.index}`);
+    // Elips olabilir: iki eksen de hesaba katılır (rx/ry).
+    const rx = circle.r * (circle.sx ?? 1);
+    const ry = circle.r * (circle.sy ?? 1);
+    const rho = Math.hypot((p.x - circle.cx) / rx, (p.y - circle.cy) / ry);
+    if (Math.abs(rho - 1) * Math.min(rx, ry) <= tol) out.push(`c${circle.index}`);
   }
 
   for (const line of g.lines) {
@@ -784,4 +788,44 @@ test('gd: elipsi büyütüp geri küçültmek dolguları korur', () => {
   const after = buildGridDrawPlan(settings({ grid: 10, size: 1000, guides: [back] }));
   assert.deepEqual(after.regions.map((r) => r.id), plan.regions.map((r) => r.id), 'bölgeler aynen kalır');
   for (const id of fills) assert.ok(after.regions.some((r) => r.id === id));
+});
+
+test('gd: iki elipsin kesişimi TAM analitik noktada olur (raster değil)', () => {
+  // Yatay elips (rx 400, ry 200) ve dikey elips (rx 200, ry 400) aynı merkezde.
+  // Simetri gereği kesişimler kenar ortaylarda: x²(1/400² + 1/200²) = 1 → x = √32000.
+  const wide = { ...circleGuide(500, 500, 200), sx: 2 };
+  const tall = { ...circleGuide(500, 500, 200), sy: 2 };
+  const plan = buildGridDrawPlan(settings({ grid: 10, size: 1000, guides: [wide, tall] }));
+
+  const expected = 500 + Math.sqrt(32000);
+  assert.ok(Math.abs(expected - 678.885) < 0.01, 'beklenen kesişim ~678.885');
+
+  const points = plan.regions.flatMap((r) => r.loops.flat());
+  const worst = Math.min(...points.map((p) => Math.hypot(p.x - expected, p.y - expected)));
+  assert.ok(worst < 0.05, `köşe tam kesişimde olmalı (sapma ${worst.toFixed(3)} birim)`);
+
+  const g = plan.guides;
+  assert.equal(g.circles.length, 2);
+  const step = Math.max(1, Math.floor(plan.regions.length / 12));
+  for (let i = 0; i < plan.regions.length; i += step) {
+    const region = plan.regions[i];
+    assertFlawlessLoops(region.loops, g, `elips bölge #${region.id}`);
+  }
+});
+
+test('gd: elips kesişiminde iç içe/eş merkezli durumlar güvenli', () => {
+  const base = { ...circleGuide(500, 500, 200), sx: 1.5 };
+  const cases: Array<[string, GuideCircle, GuideCircle]> = [
+    ['tamamen içte', base, { ...circleGuide(500, 500, 100), sx: 1.5 }],
+    ['eş merkezli, farklı oran', base, { ...circleGuide(500, 500, 300), sx: 1.5 }],
+    ['ayrık', base, { ...circleGuide(500, 500, 100), sx: 3 }],
+  ];
+  for (const [label, a, b] of cases) {
+    const plan = buildGridDrawPlan(settings({ grid: 10, size: 1000, guides: [a, b] }));
+    assert.ok(plan.regions.length > 0, `${label}: plan kurulur`);
+    const step = Math.max(1, Math.floor(plan.regions.length / 8));
+    for (let i = 0; i < plan.regions.length; i += step) {
+      assertFlawlessLoops(plan.regions[i].loops, plan.guides, `${label} #${plan.regions[i].id}`);
+    }
+  }
 });
