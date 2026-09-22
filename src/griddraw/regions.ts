@@ -39,7 +39,18 @@ export interface GuideCircle {
   kind: 'circle';
   cx: number;
   cy: number;
+  /** Yarıçap (tek ölçek). İki eksende bağımsız uzatma `sx`/`sy` ile yapılır. */
   r: number;
+  /**
+   * X ekseninde uzatma kat sayısı (varsayılan 1).
+   *
+   * `sx ≠ sy` olduğunda kılavuz artık bir ELİPS'tir: iki yarıçap `r*sx` ve
+   * `r*sy`. Dört tarafı bağımsız uzatma (`resizeCircleSide`) bu kat sayıları
+   * değiştirir; oranlı boyutlandırma yalnızca `r`'yi değiştirmeye devam eder.
+   * 1 olduğunda alan yazılmaz, böylece eski kayıtlar ve karşılaştırmalar bozulmaz.
+   */
+  sx?: number;
+  sy?: number;
 }
 
 export interface GuideLine {
@@ -125,6 +136,87 @@ export function centerCrossLines(size: number): GuideLine[] {
   return [lineGuide({ x: c, y: 0 }, { x: c, y: size }), lineGuide({ x: 0, y: c }, { x: size, y: c })];
 }
 
+// ------------------------------------------------- elips (oransız uzatma)
+
+/**
+ * Dairenin iki yarıçapı: `sx = sy = 1` ise ikisi de `r`'dir, değilse ELİPS.
+ */
+function circleAxes(c: { r: number; sx?: number; sy?: number }): { rx: number; ry: number } {
+  const sx = c.sx && c.sx > 0.02 ? c.sx : 1;
+  const sy = c.sy && c.sy > 0.02 ? c.sy : 1;
+  return { rx: c.r * sx, ry: c.r * sy };
+}
+
+/** Noktanın elips çemberine uzaklığı (0 = tam üzerinde). */
+function ellipseDistance(px: number, py: number, cx: number, cy: number, rx: number, ry: number): number {
+  const rho = Math.hypot((px - cx) / rx, (py - cy) / ry);
+  return Math.abs(rho - 1) * Math.min(rx, ry);
+}
+
+/** Noktayı elipsin üzerine (ölçekli uzayda radyal) izdüşürür. */
+function projectOnEllipse(px: number, py: number, cx: number, cy: number, rx: number, ry: number): Vec2 {
+  const ux = (px - cx) / rx;
+  const uy = (py - cy) / ry;
+  const d = Math.hypot(ux, uy);
+  if (d < 1e-9) return { x: cx + rx, y: cy };
+  return { x: cx + (ux / d) * rx, y: cy + (uy / d) * ry };
+}
+
+/** Dairenin kenarları (ışın sırası: sol, sağ, ust, alt). */
+export type CircleSide = 'left' | 'right' | 'top' | 'bottom';
+
+/** Bir kenarın alabileceği en küçük uzunluk (birim). */
+export const MIN_CIRCLE_SIDE = 4;
+
+/**
+ * Dairenin BİR tarafını bağımsız sürükler: **yalnızca o kenar hareket eder,
+ * karşı kenar yerinde kalır** (oranlı değil). Sonuç bir ELİPS olabilir.
+ *
+ * `value` kenarın yeni koordinatıdır (sol/kedi için x, ust/alt için y).
+ * Aşırı küçülmeyi önlemek için kenar karşı kenardan en az `MIN_CIRCLE_SIDE`
+ * birim uzakta tutulur.
+ */
+export function resizeCircleSide(guide: GuideCircle, side: CircleSide, value: number): GuideCircle {
+  const base = Math.max(1e-6, guide.r);
+  const { rx, ry } = circleAxes(guide);
+  const left = guide.cx - rx;
+  const right = guide.cx + rx;
+  const top = guide.cy - ry;
+  const bottom = guide.cy + ry;
+
+  let cx = guide.cx;
+  let cy = guide.cy;
+  let nrx = rx;
+  let nry = ry;
+  if (side === 'left') {
+    const edge = Math.min(value, right - MIN_CIRCLE_SIDE);
+    nrx = (right - edge) / 2;
+    cx = edge + nrx;
+  } else if (side === 'right') {
+    const edge = Math.max(value, left + MIN_CIRCLE_SIDE);
+    nrx = (edge - left) / 2;
+    cx = left + nrx;
+  } else if (side === 'top') {
+    const edge = Math.min(value, bottom - MIN_CIRCLE_SIDE);
+    nry = (bottom - edge) / 2;
+    cy = edge + nry;
+  } else {
+    const edge = Math.max(value, top + MIN_CIRCLE_SIDE);
+    nry = (edge - top) / 2;
+    cy = top + nry;
+  }
+
+  const next: GuideCircle = { ...guide, cx, cy };
+  // 6 hane: kenar konumu 1440 birimde ~0.001 birim hata ile korunur (piksel altı).
+  const sx = Math.round((nrx / base) * 1e6) / 1e6;
+  const sy = Math.round((nry / base) * 1e6) / 1e6;
+  if (sx === 1) delete next.sx;
+  else next.sx = sx;
+  if (sy === 1) delete next.sy;
+  else next.sy = sy;
+  return next;
+}
+
 /**
  * Hazır ızgara (başlangıç şablonu): yalnızca **ızgara + kılavuz** tanımıdır.
  * Dolgu içermez; şablon uygulandığında tuval boş gelir, boyamaya hazırdır.
@@ -188,7 +280,13 @@ export const GRID_PRESETS: GridPreset[] = [
 function sameGuide(a: GuideShape, b: GuideShape): boolean {
   if (a.id !== b.id || a.kind !== b.kind) return false;
   if (a.kind === 'circle' && b.kind === 'circle') {
-    return a.cx === b.cx && a.cy === b.cy && a.r === b.r;
+    return (
+      a.cx === b.cx &&
+      a.cy === b.cy &&
+      a.r === b.r &&
+      (a.sx ?? 1) === (b.sx ?? 1) &&
+      (a.sy ?? 1) === (b.sy ?? 1)
+    );
   }
   if (a.kind === 'line' && b.kind === 'line') {
     return a.ax === b.ax && a.ay === b.ay && a.bx === b.bx && a.by === b.by;
@@ -287,7 +385,7 @@ export interface GridDrawGuides {
   cx: number;
   cy: number;
   /** Kullanıcı daireleri; `index` ayarlardaki konumudur (kararlı kimlik). */
-  circles: { index: number; cx: number; cy: number; r: number }[];
+  circles: { index: number; cx: number; cy: number; r: number; sx?: number; sy?: number }[];
   /** Kullanıcı çizgileri; `index` ayarlardaki konumudur. */
   lines: { index: number; a: Vec2; b: Vec2 }[];
   // Aşağıdakiler tarama/snapping kodunun tek biçimli kalması için kısayoldur.
@@ -310,7 +408,9 @@ export function guideGeometry(settings: GridDrawSettings): GridDrawGuides {
 
   settings.guides.forEach((guide, index) => {
     if (guide.kind === 'circle') {
-      if (guide.r > 0.5) circles.push({ index, cx: guide.cx, cy: guide.cy, r: guide.r });
+      if (guide.r > 0.5) {
+        circles.push({ index, cx: guide.cx, cy: guide.cy, r: guide.r, sx: guide.sx, sy: guide.sy });
+      }
     } else if (Math.hypot(guide.bx - guide.ax, guide.by - guide.ay) > 0.5) {
       lines.push({ index, a: { x: guide.ax, y: guide.ay }, b: { x: guide.bx, y: guide.by } });
     }
@@ -456,17 +556,22 @@ function rasterWalls(guides: GridDrawGuides): Uint8Array {
 
   // Kullanıcı daireleri: her satırda halka aralığı doğrudan hesaplanır
   for (const circle of circles) {
-    const { cx, cy, r } = circle;
-    const y0 = Math.max(0, Math.floor(cy - r - CURVE_HALF));
-    const y1 = Math.min(height - 1, Math.ceil(cy + r + CURVE_HALF));
+    const { cx, cy } = circle;
+    const { rx, ry } = circleAxes(circle);
+    const y0 = Math.max(0, Math.floor(cy - ry - CURVE_HALF));
+    const y1 = Math.min(height - 1, Math.ceil(cy + ry + CURVE_HALF));
     for (let j = y0; j <= y1; j++) {
       const py = j + 0.5;
       const dy = py - cy;
-      const outerSq = (r + CURVE_HALF) ** 2 - dy * dy;
-      if (outerSq <= 0) continue;
-      const outer = Math.sqrt(outerSq);
-      const innerSq = (r - CURVE_HALF) ** 2 - dy * dy;
-      const inner = innerSq > 0 ? Math.sqrt(innerSq) : 0;
+      // Dış ve iç ELİPSin bu satırdaki yarı genişlikleri (sx = sy = 1 iken
+      // ifade tam olarak daire hâline iner).
+      const outerRy = ry + CURVE_HALF;
+      const innerRy = ry - CURVE_HALF;
+      const outerK = 1 - (dy / outerRy) ** 2;
+      if (outerK <= 0) continue;
+      const outer = (rx + CURVE_HALF) * Math.sqrt(outerK);
+      const innerK = innerRy > 0 ? 1 - (dy / innerRy) ** 2 : -1;
+      const inner = innerK > 0 ? Math.max(0, rx - CURVE_HALF) * Math.sqrt(innerK) : 0;
       markSpan(walls, width, cx - outer, cx - inner, j);
       markSpan(walls, width, cx + inner, cx + outer, j);
     }
@@ -627,13 +732,10 @@ export function snapToGuides(p: Vec2, guides: GridDrawGuides, tolerance = SNAP_T
   const candidates: Candidate[] = [];
 
   for (const circle of guides.circles) {
-    const dx = p.x - circle.cx;
-    const dy = p.y - circle.cy;
-    const d = Math.hypot(dx, dy);
-    if (d < 1e-9) continue;
+    const { rx, ry } = circleAxes(circle);
     candidates.push({
-      point: { x: circle.cx + (dx / d) * circle.r, y: circle.cy + (dy / d) * circle.r },
-      distance: Math.abs(d - circle.r),
+      point: projectOnEllipse(p.x, p.y, circle.cx, circle.cy, rx, ry),
+      distance: ellipseDistance(p.x, p.y, circle.cx, circle.cy, rx, ry),
     });
   }
   for (const line of guides.lines) candidates.push(projectOnSegment(p, line.a, line.b));
@@ -684,8 +786,8 @@ interface GuideRef {
   value: number;
   /** l için doğru parçası. */
   seg?: [Vec2, Vec2];
-  /** c için merkez ve yarıçap. */
-  circle?: { cx: number; cy: number; r: number };
+  /** c için merkez ve iki yarıçap (elips olabilir). */
+  circle?: { cx: number; cy: number; r: number; rx: number; ry: number };
 }
 
 /** Bir noktanın kılavuz üzerinde sayılması için tolerans (birim). */
@@ -705,12 +807,13 @@ function guidesOf(p: Vec2, guides: GridDrawGuides): GuideRef[] {
   }
 
   for (const circle of guides.circles) {
-    if (Math.abs(Math.hypot(p.x - circle.cx, p.y - circle.cy) - circle.r) <= GUIDE_TOL) {
+    const { rx, ry } = circleAxes(circle);
+    if (ellipseDistance(p.x, p.y, circle.cx, circle.cy, rx, ry) <= GUIDE_TOL) {
       out.push({
         kind: 'c',
         index: circle.index,
         value: circle.index,
-        circle: { cx: circle.cx, cy: circle.cy, r: circle.r },
+        circle: { cx: circle.cx, cy: circle.cy, r: circle.r, rx, ry },
       });
     }
   }
@@ -827,18 +930,18 @@ function guideIntersection(a: GuideRef, b: GuideRef, near: Vec2): Vec2 | null {
   if (vert && circle?.circle) {
     const c = circle.circle;
     const dx = vert.value - c.cx;
-    const inner = c.r * c.r - dx * dx;
+    const inner = 1 - (dx / c.rx) ** 2;
     if (inner < 0) return null;
-    const s = Math.sqrt(inner);
+    const s = c.ry * Math.sqrt(inner);
     return nearestOf([{ x: vert.value, y: c.cy - s }, { x: vert.value, y: c.cy + s }], near);
   }
 
   if (horz && circle?.circle) {
     const c = circle.circle;
     const dy = horz.value - c.cy;
-    const inner = c.r * c.r - dy * dy;
+    const inner = 1 - (dy / c.ry) ** 2;
     if (inner < 0) return null;
-    const s = Math.sqrt(inner);
+    const s = c.rx * Math.sqrt(inner);
     return nearestOf([{ x: c.cx - s, y: horz.value }, { x: c.cx + s, y: horz.value }], near);
   }
 
@@ -853,10 +956,28 @@ function guideIntersection(a: GuideRef, b: GuideRef, near: Vec2): Vec2 | null {
   }
 
   if (a.kind === 'c' && b.kind === 'c' && a.circle && b.circle) {
-    return circleCircle(a.circle, b.circle, near);
+    // Elips × elips analitik olarak çözülmez (kuartik); raster + snapping
+    // devreye girer. Tam dairelerde eski davranış aynen sürer.
+    const ca = a.circle;
+    const cb = b.circle;
+    const aIsCircle = Math.abs(ca.rx - ca.ry) < 1e-9;
+    const bIsCircle = Math.abs(cb.rx - cb.ry) < 1e-9;
+    if (!aIsCircle || !bIsCircle) return null;
+    return circleCircle({ ...ca, r: ca.rx }, { ...cb, r: cb.rx }, near);
   }
 
-  if (circle?.circle && line?.seg) return circleSegment(circle.circle, line.seg, near);
+  if (circle?.circle && line?.seg) {
+    const c = circle.circle;
+    if (Math.abs(c.rx - c.ry) < 1e-9) return circleSegment({ cx: c.cx, cy: c.cy, r: c.rx }, line.seg, near);
+    // Elips: parçayı ölçekli uzaya taşı → orada birim çember olur.
+    const seg: [Vec2, Vec2] = [
+      { x: (line.seg[0].x - c.cx) / c.rx, y: (line.seg[0].y - c.cy) / c.ry },
+      { x: (line.seg[1].x - c.cx) / c.rx, y: (line.seg[1].y - c.cy) / c.ry },
+    ];
+    const nearScaled: Vec2 = { x: (near.x - c.cx) / c.rx, y: (near.y - c.cy) / c.ry };
+    const hit = circleSegment({ cx: 0, cy: 0, r: 1 }, seg, nearScaled);
+    return hit ? { x: c.cx + hit.x * c.rx, y: c.cy + hit.y * c.ry } : null;
+  }
 
   if (a.kind === 'l' && b.kind === 'l' && a.seg && b.seg) return segmentSegment(a.seg, b.seg);
 
@@ -1627,14 +1748,16 @@ export function regionsInDisc(
   cy: number,
   r: number,
   mode: 'in' | 'out' = 'in',
+  /** Elips için: `r` yerine iki yarıçap (varsayılan daire). */
+  rx: number = r,
+  ry: number = r,
 ): number[] {
   const wantInside = mode === 'in';
-  const r2 = r * r;
   const ids: number[] = [];
   for (const region of plan.regions) {
-    const dx = region.sample.x - cx;
-    const dy = region.sample.y - cy;
-    const inside = dx * dx + dy * dy <= r2;
+    const ux = (region.sample.x - cx) / rx;
+    const uy = (region.sample.y - cy) / ry;
+    const inside = ux * ux + uy * uy <= 1;
     if (inside === wantInside) ids.push(region.id);
   }
   return ids;
@@ -1668,7 +1791,14 @@ export function guideNear(guideList: GuideShape[], p: Vec2, tol: number): GuideS
   for (const guide of guideList) {
     const distance =
       guide.kind === 'circle'
-        ? Math.abs(Math.hypot(p.x - guide.cx, p.y - guide.cy) - guide.r)
+        ? ellipseDistance(
+            p.x,
+            p.y,
+            guide.cx,
+            guide.cy,
+            circleAxes(guide).rx,
+            circleAxes(guide).ry,
+          )
         : projectOnSegment(p, { x: guide.ax, y: guide.ay }, { x: guide.bx, y: guide.by }).distance;
     if (distance <= bestDistance) {
       bestDistance = distance;

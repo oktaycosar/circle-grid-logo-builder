@@ -33,6 +33,7 @@ import {
   mirrorSample,
   regionAt,
   regionsInDisc,
+  resizeCircleSide,
   signedLoopArea,
   type GridDrawPlan,
   type GridDrawSettings,
@@ -688,4 +689,99 @@ test('gd: birleştirme kılavuz geometrisini bozmaz', () => {
   const after = guideGeometry(plan.settings);
 
   assert.deepEqual(before, after, 'birleştirme kılavuzu değiştirmemeli');
+});
+
+// ---------------------------------------------------------------- serbest boyut
+test('gd: serbest boyut YALNIZCA sürüklenen kenarı hareket ettirir', () => {
+  const base = circleGuide(600, 400, 200);
+  const right = resizeCircleSide(base, 'right', 900);
+
+  // Sağ kenar 800 → 900; sol (400) sabit kalır → yarıçap 250, merkez 650.
+  assert.equal(right.cx - right.r * (right.sx ?? 1), 400, 'sol kenar sabit kalmalı');
+  assert.equal(right.cx + right.r * (right.sx ?? 1), 900, 'sağ kenar yeni konumda');
+  assert.equal(right.sx, 1.25, 'x ölçeği 1.25 olmalı');
+  assert.equal(right.sy, undefined, 'sürüklenmeyen eksen 1 kalır ve JSON’a yazılmaz');
+  assert.equal(right.cx, 650);
+  assert.equal(right.cy, 400, 'dikeyde hiçbir şey değişmemeli');
+
+  const top = resizeCircleSide(base, 'top', 50);
+  assert.equal(top.cy - top.r * (top.sy ?? 1), 50, 'üst kenar taşındı');
+  assert.equal(top.cy + top.r * (top.sy ?? 1), 600, 'alt kenar sabit');
+  assert.equal(top.sy, 1.375);
+  assert.equal(top.sx, undefined);
+  assert.equal(top.cx, 600, 'yatayda hiçbir şey değişmemeli');
+});
+
+test('gd: serbest boyut oranlı DEĞİL — dört kenar bağımsız', () => {
+  let g = circleGuide(500, 500, 300);
+  // Her kenar sırayla 100 birim dışa: karşı kenarlar net biçimde farklı olur.
+  g = resizeCircleSide(g, 'right', 800 + 100);
+  g = resizeCircleSide(g, 'left', 200 - 100);
+  g = resizeCircleSide(g, 'bottom', 800 + 60);
+  g = resizeCircleSide(g, 'top', 200 - 60);
+
+  const rx = g.r * (g.sx ?? 1);
+  const ry = g.r * (g.sy ?? 1);
+  // Genişlik: 600 + 100 (sağ) + 100 (sol) = 800 birim; yükseklik: 600 + 60 + 60 = 720.
+  assert.ok(Math.abs(rx * 2 - 800) < 0.01, `genişlik 800 olmalı (${rx * 2})`);
+  assert.ok(Math.abs(ry * 2 - 720) < 0.01, `yükseklik 720 olmalı (${ry * 2})`);
+  assert.ok(Math.abs(rx - ry) > 1, 'iki eksen birbirinden bağımsız');
+  assert.ok(Math.abs(g.cx - 500) < 0.01);
+  assert.ok(Math.abs(g.cy - 500) < 0.01);
+});
+
+test('gd: serbest boyut asla kenarı yok etmez, oranı 1 olunca alanı siler', () => {
+  const base = circleGuide(300, 300, 100);
+
+  // Aşırı içe sürükleme: kenarlar en az MIN_CIRCLE_SIDE (4 birim) aralık kalır.
+  const thin = resizeCircleSide(base, 'left', 100_000);
+  assert.equal(Math.round(thin.r * (thin.sx ?? 1) * 2), 4, 'kenar 4 birime kadar daralır');
+  assert.ok(thin.r * (thin.sx ?? 1) > 0, 'genişlik asla 0 olmaz');
+
+  // Geri al: ilk konuma dönen kenar ölçek alanını tamamen siler (JSON temiz kalır).
+  const stretched = resizeCircleSide(base, 'right', 500);
+  assert.ok(stretched.sx !== undefined);
+  const restored = resizeCircleSide(stretched, 'right', 400);
+  assert.equal(restored.sx, undefined, 'ölçek 1 olunca alan silinir');
+  assert.equal(restored.sy, undefined);
+  assert.equal(restored.cx, base.cx);
+  assert.equal(restored.r, base.r);
+});
+
+test('gd: elips kılavuz bölgeleri doğru üretir (daireden farklı)', () => {
+  const circle = circleGuide(500, 500, 200);
+  const flat = resizeCircleSide(circle, 'right', 900); // 300..700 → 300..900: rx 300, ry 200
+  const circlePlan = buildGridDrawPlan(settings({ grid: 10, size: 1000, guides: [circle] }));
+  const ellipsePlan = buildGridDrawPlan(settings({ grid: 10, size: 1000, guides: [flat] }));
+
+  assert.equal((circlePlan.guides.circles[0].sx ?? 1) * circlePlan.guides.circles[0].r, 200);
+  assert.equal((circlePlan.guides.circles[0].sy ?? 1) * circlePlan.guides.circles[0].r, 200);
+  assert.ok(Math.abs((ellipsePlan.guides.circles[0].sx ?? 1) * ellipsePlan.guides.circles[0].r - 300) < 0.01);
+  assert.ok(
+    Math.abs((ellipsePlan.guides.circles[0].sy ?? 1) * ellipsePlan.guides.circles[0].r - 200) < 0.01,
+    'dikey yarıçap bozulmamalı',
+  );
+  assert.notEqual(ellipsePlan.regions.length, circlePlan.regions.length, 'elips daha çok göz böler');
+
+  // Elips üzerindeki bölge seçimi de elipse uyar (rx/ry ile).
+  const inside = regionsInDisc(ellipsePlan, 500, 500, 200, 'in', 300, 200);
+  const insideCircleOnly = regionsInDisc(ellipsePlan, 500, 500, 200, 'in');
+  assert.ok(inside.length >= insideCircleOnly.length, 'elips testi daha geniş alan kapsar');
+  assert.ok(inside.length > 0);
+});
+
+test('gd: elipsi büyütüp geri küçültmek dolguları korur', () => {
+  const circle = circleGuide(500, 500, 200);
+  const plan = buildGridDrawPlan(settings({ grid: 10, size: 1000, guides: [circle] }));
+  const fills = new Set(regionsInDisc(plan, 500, 500, 100));
+
+  // Kılavuzu uzatıp eski hâline döndürmek ayarları BİT BİT aynı yapmalı.
+  const back = resizeCircleSide(resizeCircleSide(circle, 'bottom', 760), 'bottom', 700);
+  assert.equal(back.sy, undefined);
+  assert.equal(back.cy, circle.cy);
+  assert.equal(back.r, circle.r);
+
+  const after = buildGridDrawPlan(settings({ grid: 10, size: 1000, guides: [back] }));
+  assert.deepEqual(after.regions.map((r) => r.id), plan.regions.map((r) => r.id), 'bölgeler aynen kalır');
+  for (const id of fills) assert.ok(after.regions.some((r) => r.id === id));
 });

@@ -128,7 +128,7 @@ dairelerinin uçları (±5). Bu şablon **392 göz** üretir ve
 **geometri imzasına** bakar (kılavuz kimlikleri değil, yalnızca şekil). İmza
 aynıysa plan geçerli kalır ve dolgular doğrudan geri konur.
 
-Kısayollar: `F` doldur · `E` boşalt · `M` taşı · `H` gezdir · `Shift`+sürükle
+Kısayollar: `F` doldur · `E` boşalt · `M` taşı · `5` serbest boyut · `H` gezdir · `Shift`+sürükle
 = alan seçimi · `Ctrl+Z` geri al · `Ctrl+Shift+Z` ileri al ·
 `+` / `−` / `0` yakınlaştırma · `boşluk`+sürükle = sahneyi kaydır ·
 `Esc` çizim/taşıma/gezdirme modundan çık · ok tuşları seçili kılavuzu kaydırır
@@ -141,6 +141,22 @@ olsun aynı hissi verir. Sürükleme sırasında yalnızca **önizleme** kayar; 
 bırakınca bir kez yeniden kurulur (60 fps'te donmaz). Taşıma modundayken de
 boyama çalışır: kılavuzun üstünde taşıma, dışında boyama devreye girer —
 kullanıcı modda takılı kalmaz.
+
+**Serbest boyut — dört kenar bağımsız (elips):** `⤢ Serbest boyut` (kısayol
+`5`) aracı açıkken seçili dairenin **dört tutamağı** çıkar ve her tutamak
+**yalnız kendi kenarını** taşır; **karşı kenar yerinde kalır** (oranlı değil).
+Sağ tutamağı dışa çekmek genişliği artırır, yükseklik değişmez — daire
+**elips** olur. Geometri `sx` / `sy` (eksen ölçekleri, varsayılan 1) ile
+saklanır: ölçek 1'e dönerse alan **tamamen silinir**, dolayısıyla eski
+kayıtlar/JSON aynen kalır. Kenar, karşı kenardan en az `MIN_CIRCLE_SIDE = 4`
+birim uzakta tutulur (asla yok olmaz). Ölçülen örnek: `r 389`, merkez
+`cx 634.96` → sağ tutamak `+90` → `sx 1.116`, sol kenar `245.96` **sabit**,
+yükseklik `778` **sabit**; üst tutamak `−60` → `sy 1.077`, alt kenar sabit.
+Araç açıkken de boyama çalışır; bırakınca plan bir kez yeniden kurulur ve
+`Ctrl+Z` ile geri alınır. `tests/griddraw-output.test.ts` bunu
+doğrular (yalnız sürüklenen kenar hareket eder, ölçek 1'de silinir, elips
+planı daire planından farklı göz sayısı üretir, eski hâle dönüş bölgeleri
+bit bit korur).
 
 **Tutamaklar (boyutla oynama):** listeden bir kılavuz seçince tuvalde tutamak
 çıkar — dairede **yarıçap** (sağdaki kare), çizgide **iki uç**. Tutamağı

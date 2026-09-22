@@ -22,11 +22,13 @@ import {
   regionsOnSide,
   remapFills,
   regionAt,
+  resizeCircleSide,
   snapToGridPoint,
   strokeRegions,
   type GridDrawPlan,
   type GridDrawSettings,
   type GridPreset,
+  type CircleSide,
   type GuideCircle,
   type GuideLine,
   type GuideShape,
@@ -91,7 +93,49 @@ type PaintTool = 'fill' | 'erase';
 const PAINT_LABELS: Record<PaintTool, string> = { fill: 'Doldur', erase: 'Boşalt' };
 
 /** Çizim / taşıma aracı. */
-type GuideTool = 'none' | 'circle' | 'line' | 'move';
+type GuideTool = 'none' | 'circle' | 'line' | 'move' | 'stretch';
+
+/**
+ * Kılavuzun (varsa önizleme ile birlikte) elips ölçüleri.
+ *
+ * `sx`/`sy` iki eksende bağımsız uzatma kat sayılarıdır; 1 olduklarında
+ * kılavuz bildiğimiz DAİREdir. "Serbest boyut" modunda tutamak sürüklenirken
+ * önizleme `draft` üzerinden gelir (plan yeniden kurulmaz).
+ */
+function ellipseOf(
+  g: GuideCircle,
+  draft?: {
+    guideId: string;
+    r?: number;
+    side?: CircleSide;
+    cx?: number;
+    cy?: number;
+    sx?: number;
+    sy?: number;
+  } | null,
+): { cx: number; cy: number; rx: number; ry: number } {
+  const scaleX = g.sx && g.sx > 0.02 ? g.sx : 1;
+  const scaleY = g.sy && g.sy > 0.02 ? g.sy : 1;
+  if (draft && draft.side) {
+    const base = Math.max(1e-6, g.r);
+    return {
+      cx: draft.cx ?? g.cx,
+      cy: draft.cy ?? g.cy,
+      rx: base * (draft.sx ?? scaleX),
+      ry: base * (draft.sy ?? scaleY),
+    };
+  }
+  const r = draft && draft.r !== undefined ? draft.r : g.r;
+  return { cx: g.cx, cy: g.cy, rx: r * scaleX, ry: r * scaleY };
+}
+
+/** Kenar etiketleri (durum satırı için). */
+const SIDE_LABELS: Record<CircleSide, string> = {
+  left: 'Sol',
+  right: 'Sağ',
+  top: 'Üst',
+  bottom: 'Alt',
+};
 
 /** Sürükleme sırasındaki kılavuz önizlemesi. */
 type GuideDraft =
@@ -112,7 +156,7 @@ type AreaRect = { from: Vec2; to: Vec2 };
  * olayı ~200 ms'lik bölge hesabı tetiklerdi.
  */
 type HandleDraft =
-  | { guideId: string; kind: 'radius'; r: number }
+  | { guideId: string; kind: 'radius'; r: number; side?: CircleSide; cx?: number; cy?: number; sx?: number; sy?: number }
   | { guideId: string; kind: 'a' | 'b'; point: Vec2 };
 
 /** Son toplu doldurma işlemi — geometri değişince kendiliğinden tazelenir. */
@@ -135,7 +179,12 @@ export interface GridDrawStudioProps {
 
 function formatGuide(guide: GuideShape): string {
   if (guide.kind === 'circle') {
-    return `◯ r ${Math.round(guide.r)}`;
+    const rx = guide.r * (guide.sx && guide.sx > 0.02 ? guide.sx : 1);
+    const ry = guide.r * (guide.sy && guide.sy > 0.02 ? guide.sy : 1);
+    // Uzatılmışsa (elips) iki ekseni birden yaz: "◯ 320×140".
+    return Math.abs(rx - ry) > 0.5
+      ? `◯ ${Math.round(rx * 2)}×${Math.round(ry * 2)}`
+      : `◯ r ${Math.round(guide.r)}`;
   }
   const angle = Math.round((((Math.atan2(guide.by - guide.ay, guide.bx - guide.ax) * 180) / Math.PI) + 180) % 180);
   const length = Math.round(Math.hypot(guide.bx - guide.ax, guide.by - guide.ay));
@@ -379,15 +428,33 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
         const outer = circleOf(bulk.outerId);
         const inner = circleOf(bulk.innerId);
         if (outer && inner) {
-          const innerIds = new Set(regionsInDisc(next, inner.cx, inner.cy, inner.r, 'in'));
-          const ring = regionsInDisc(next, outer.cx, outer.cy, outer.r, 'in').filter((id) => !innerIds.has(id));
+          const innerIds = new Set(
+            regionsInDisc(next, inner.cx, inner.cy, inner.r, 'in', inner.r * (inner.sx ?? 1), inner.r * (inner.sy ?? 1)),
+          );
+          const ring = regionsInDisc(
+            next,
+            outer.cx,
+            outer.cy,
+            outer.r,
+            'in',
+            outer.r * (outer.sx ?? 1),
+            outer.r * (outer.sy ?? 1),
+          ).filter((id) => !innerIds.has(id));
           setFills(new Set(ring));
           setStatus(`Halka tazelendi (r ${Math.round(inner.r)}–${Math.round(outer.r)}): ${ring.length} göz.`);
         }
       } else if (bulk && bulk.kind === 'disc') {
         const circle = circleOf(bulk.id);
         if (circle) {
-          const ids = regionsInDisc(next, circle.cx, circle.cy, circle.r, bulk.mode);
+          const ids = regionsInDisc(
+            next,
+            circle.cx,
+            circle.cy,
+            circle.r,
+            bulk.mode,
+            circle.r * (circle.sx ?? 1),
+            circle.r * (circle.sy ?? 1),
+          );
           setFills(new Set(ids));
           setStatus(`Dolgu tazelendi: ${ids.length} göz.`);
         }
@@ -542,6 +609,13 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
         } else if (lower === 'm') {
           setPanMode(false);
           setGuideTool((t) => (t === 'move' ? 'none' : 'move'));
+        } else if (event.key === '5') {
+          // Serbest boyut: dairenin dört kenarını bağımsız uzat (elips).
+          setPanMode(false);
+          setGuideTool((t) => (t === 'stretch' ? 'none' : 'stretch'));
+          setStatus(
+            'Serbest boyut: listeden daireyi seçin, tutamaklardan birini çekin — yalnızca o kenar hareket eder.',
+          );
         } else if (event.key.startsWith('Arrow') && nudgeRef.current(event.key, event.shiftKey)) {
           event.preventDefault();
         }
@@ -620,12 +694,25 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
         if (guide.id !== id || guide.kind !== 'circle') return guide;
         const num = (value: number | undefined, fallback: number) =>
           Number.isFinite(value) ? round2(value as number) : fallback;
-        return {
-          ...guide,
+        // Bağımsız eksen ölçeği: 1 ise alanı tamamen sil (elde olmayan JSON aynen kalsın).
+        const scale = (value: number | undefined, current: number | undefined) => {
+          const raw = Number.isFinite(value) ? (value as number) : current;
+          if (raw === undefined || !Number.isFinite(raw)) return undefined;
+          const v = Math.min(50, Math.max(0.02, Math.round(raw * 1e6) / 1e6));
+          return Math.abs(v - 1) < 1e-6 ? undefined : v;
+        };
+        const sx = scale(patch.sx, guide.sx);
+        const sy = scale(patch.sy, guide.sy);
+        const next: GuideCircle = {
+          id: guide.id,
+          kind: 'circle',
           cx: num(patch.cx, guide.cx),
           cy: num(patch.cy, guide.cy),
           r: Math.max(MIN_GUIDE_RADIUS, num(patch.r, guide.r)),
         };
+        if (sx !== undefined) next.sx = sx;
+        if (sy !== undefined) next.sy = sy;
+        return next;
       }),
     });
   };
@@ -706,7 +793,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
     if (!plan) return;
     lastBulkRef.current = { kind: 'disc', id: circle.id, mode };
     fillBulk(
-      regionsInDisc(plan, circle.cx, circle.cy, circle.r, mode),
+      regionsInDisc(plan, circle.cx, circle.cy, circle.r, mode, circle.r * (circle.sx ?? 1), circle.r * (circle.sy ?? 1)),
       mode === 'in' ? 'Dairenin içi' : 'Dairenin dışı',
     );
   };
@@ -727,8 +814,18 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
     }
     const outer = guide.r >= partner.r ? guide : partner;
     const inner = outer === guide ? partner : guide;
-    const innerIds = new Set(regionsInDisc(plan, inner.cx, inner.cy, inner.r, 'in'));
-    const ring = regionsInDisc(plan, outer.cx, outer.cy, outer.r, 'in').filter((id) => !innerIds.has(id));
+    const innerIds = new Set(
+      regionsInDisc(plan, inner.cx, inner.cy, inner.r, 'in', inner.r * (inner.sx ?? 1), inner.r * (inner.sy ?? 1)),
+    );
+    const ring = regionsInDisc(
+      plan,
+      outer.cx,
+      outer.cy,
+      outer.r,
+      'in',
+      outer.r * (outer.sx ?? 1),
+      outer.r * (outer.sy ?? 1),
+    ).filter((id) => !innerIds.has(id));
     lastBulkRef.current = { kind: 'ring', outerId: outer.id, innerId: inner.id };
     fillBulk(ring, `Halka (r ${Math.round(inner.r)}–${Math.round(outer.r)})`);
   };
@@ -755,7 +852,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
     let label: string;
     if (guide.kind === 'circle') {
       const where = mode === 'out' ? 'out' : 'in';
-      keep = regionsInDisc(plan, guide.cx, guide.cy, guide.r, where);
+      keep = regionsInDisc(plan, guide.cx, guide.cy, guide.r, where, guide.r * (guide.sx ?? 1), guide.r * (guide.sy ?? 1));
       label = where === 'in' ? 'dairenin içi' : 'dairenin dışı';
     } else {
       const side = mode === -1 ? -1 : 1;
@@ -859,14 +956,15 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
     if (!guide) return [];
     const draftState = handleDraft && handleDraft.guideId === guide.id ? handleDraft : null;
     if (guide.kind === 'circle') {
-      const r = draftState && draftState.kind === 'radius' ? draftState.r : guide.r;
-      // Dört yönde tutamak: hangi taraftan çekerseniz çekin daire MERKEZDEN
-      // büyür/küçülür — oranı ve merkezi hiçbir zaman bozulmaz.
+      const { cx, cy, rx, ry } = ellipseOf(guide, draftState);
+      // Dört yönde tutamak. Normalde çekince daire MERKEZDEN büyür (oranı
+      // bozulmaz); "Serbest boyut" (stretch) modunda ise her tutamak YALNIZCA
+      // kendi kenarını taşır — karşı kenar sabit kalır, şekil elips olabilir.
       return [
-        { guideId: guide.id, kind: 'radius' as const, point: { x: guide.cx + r, y: guide.cy } },
-        { guideId: guide.id, kind: 'radius' as const, point: { x: guide.cx, y: guide.cy + r } },
-        { guideId: guide.id, kind: 'radius' as const, point: { x: guide.cx - r, y: guide.cy } },
-        { guideId: guide.id, kind: 'radius' as const, point: { x: guide.cx, y: guide.cy - r } },
+        { guideId: guide.id, kind: 'radius' as const, side: 'right' as const, point: { x: cx + rx, y: cy } },
+        { guideId: guide.id, kind: 'radius' as const, side: 'bottom' as const, point: { x: cx, y: cy + ry } },
+        { guideId: guide.id, kind: 'radius' as const, side: 'left' as const, point: { x: cx - rx, y: cy } },
+        { guideId: guide.id, kind: 'radius' as const, side: 'top' as const, point: { x: cx, y: cy - ry } },
       ];
     }
     const a = draftState && draftState.kind === 'a' ? draftState.point : { x: guide.ax, y: guide.ay };
@@ -915,8 +1013,18 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
     const markedGuide = mark ? settings.guides.find((g) => g.id === mark.guideId) : null;
     if (mark && markedGuide) {
       if (mark.kind === 'radius' && markedGuide.kind === 'circle') {
-        writeHandle({ guideId: markedGuide.id, kind: 'radius', r: markedGuide.r });
-        setStatus('Yarıçapı sürükleyin — daire merkezden büyür/küçülür, oranı bozulmaz.');
+        const stretch = guideTool === 'stretch';
+        writeHandle({
+          guideId: markedGuide.id,
+          kind: 'radius',
+          r: markedGuide.r,
+          side: stretch ? mark.side : undefined,
+        });
+        setStatus(
+          stretch
+            ? 'Serbest boyut: tutamağı çekin — yalnızca o kenar hareket eder, karşı kenar sabit kalır (elips olur).'
+            : 'Yarıçapı sürükleyin — daire merkezden büyür/küçülür, oranı bozulmaz.',
+        );
       } else if (markedGuide.kind === 'line' && mark.kind !== 'radius') {
         writeHandle({ guideId: markedGuide.id, kind: mark.kind, point: mark.point });
         setStatus('Çizgi ucunu sürükleyin.');
@@ -988,11 +1096,34 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
     if (activeHandle) {
       const guide = settings.guides.find((g) => g.id === activeHandle.guideId);
       if (guide?.kind === 'circle' && activeHandle.kind === 'radius') {
-        const distance = Math.hypot(raw.x - guide.cx, raw.y - guide.cy);
-        const stepped = snapDraw ? Math.round(distance / guides.cell) * guides.cell : distance;
-        const r = Math.max(MIN_GUIDE_RADIUS, round2(stepped));
-        writeHandle({ guideId: guide.id, kind: 'radius', r });
-        setStatus(`Yarıçap: ${Math.round(r)}`);
+        if (activeHandle.side) {
+          // Serbest boyut: yalnızca ilgili kenar hareket eder (karşı kenar sabit).
+          const side = activeHandle.side;
+          const horizontal = side === 'left' || side === 'right';
+          const rawValue = horizontal ? raw.x : raw.y;
+          const stepped = snapDraw ? Math.round(rawValue / guides.cell) * guides.cell : rawValue;
+          const next = resizeCircleSide(guide, side, stepped);
+          writeHandle({
+            guideId: guide.id,
+            kind: 'radius',
+            r: guide.r,
+            side,
+            cx: next.cx,
+            cy: next.cy,
+            sx: next.sx ?? 1,
+            sy: next.sy ?? 1,
+          });
+          const edge = horizontal
+            ? next.cx + (side === 'right' ? 1 : -1) * guide.r * (next.sx ?? 1)
+            : next.cy + (side === 'bottom' ? 1 : -1) * guide.r * (next.sy ?? 1);
+          setStatus(`${SIDE_LABELS[side]} kenar: ${Math.round(edge)} — bırakınca uygulanır.`);
+        } else {
+          const distance = Math.hypot(raw.x - guide.cx, raw.y - guide.cy);
+          const stepped = snapDraw ? Math.round(distance / guides.cell) * guides.cell : distance;
+          const r = Math.max(MIN_GUIDE_RADIUS, round2(stepped));
+          writeHandle({ guideId: guide.id, kind: 'radius', r });
+          setStatus(`Yarıçap: ${Math.round(r)}`);
+        }
       } else if (guide?.kind === 'line' && activeHandle.kind !== 'radius') {
         writeHandle({ guideId: guide.id, kind: activeHandle.kind, point: anchorPoint(event, raw) });
       }
@@ -1061,7 +1192,30 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
       writeHandle(null);
       const guide = settings.guides.find((g) => g.id === handled.guideId);
       if (guide && handled.kind === 'radius' && guide.kind === 'circle') {
-        if (Math.abs(guide.r - handled.r) > 0.01) {
+        if (handled.side) {
+          const side = handled.side;
+          const horizontal = side === 'left' || side === 'right';
+          const value = horizontal
+            ? (handled.cx ?? guide.cx) + (side === 'right' ? 1 : -1) * guide.r * (handled.sx ?? 1)
+            : (handled.cy ?? guide.cy) + (side === 'bottom' ? 1 : -1) * guide.r * (handled.sy ?? 1);
+          const next = resizeCircleSide(guide, side, value);
+          const changed =
+            Math.abs(next.cx - guide.cx) > 0.01 ||
+            Math.abs(next.cy - guide.cy) > 0.01 ||
+            (next.sx ?? 1) !== (guide.sx ?? 1) ||
+            (next.sy ?? 1) !== (guide.sy ?? 1);
+          if (changed) {
+            updateCircle(guide.id, { cx: next.cx, cy: next.cy, sx: next.sx ?? 1, sy: next.sy ?? 1 });
+            scheduleBulkRefresh(guide.id);
+            setStatus(
+              `Serbest boyut: ${SIDE_LABELS[side]} kenar ${Math.round(
+                horizontal
+                  ? next.cx + (side === 'right' ? 1 : -1) * guide.r * (next.sx ?? 1)
+                  : next.cy + (side === 'bottom' ? 1 : -1) * guide.r * (next.sy ?? 1),
+              )} (Ctrl+Z ile geri alınır).`,
+            );
+          }
+        } else if (Math.abs(guide.r - handled.r) > 0.01) {
           updateCircle(guide.id, { r: handled.r });
           scheduleBulkRefresh(guide.id);
           setStatus(`Yarıçap ${Math.round(handled.r)} (Ctrl+Z ile geri alınır).`);
@@ -1454,7 +1608,29 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
             >
               ✥ Taşı
             </button>
+            <button
+              type="button"
+              className={guideTool === 'stretch' ? 'gd__btn gd__btn--primary' : 'gd__btn'}
+              onClick={() => {
+                setPanMode(false);
+                setGuideTool((t) => (t === 'stretch' ? 'none' : 'stretch'));
+                setStatus(
+                  'Serbest boyut: listeden daireyi seçin, tutamaklardan birini çekin — yalnızca o kenar hareket eder, karşı kenar sabit kalır (şekil elips olur).',
+                );
+              }}
+              title="Dairenin 4 tarafını bağımsız uzat (oranlı değil) — elips"
+            >
+              ⤢ Serbest boyut
+            </button>
           </div>
+
+          {guideTool === 'stretch' && (
+            <p className="gd__note">
+              <strong>Serbest boyut açık:</strong> seçili daireyi dört kenarından <strong>bağımsız</strong> uzatın —
+              karşı kenar yerinde kalır, şekil <strong>elips</strong> olur. <strong>5</strong> tuşu veya araç
+              düğmesi kapatır; <strong>Esc</strong> de çıkar.
+            </p>
+          )}
 
           <button
             type="button"
@@ -1838,13 +2014,26 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
                 const active = selectedGuide === guide.id || hoverGuide === guide.id;
                 const draftState = handleDraft && handleDraft.guideId === guide.id ? handleDraft : null;
                 if (guide.kind === 'circle') {
-                  const r = draftState && draftState.kind === 'radius' ? draftState.r : guide.r;
+                  const { cx, cy, rx, ry } = ellipseOf(guide, draftState);
+                  // sx = sy = 1 iken bildiğimiz daire; uzatılmışsa elips.
+                  if (Math.abs(rx - ry) < 0.01) {
+                    return (
+                      <circle
+                        key={guide.id}
+                        cx={cx + offset.dx}
+                        cy={cy + offset.dy}
+                        r={rx}
+                        className={active ? 'gd__circle gd__circle--on' : 'gd__circle'}
+                      />
+                    );
+                  }
                   return (
-                    <circle
+                    <ellipse
                       key={guide.id}
-                      cx={guide.cx + offset.dx}
-                      cy={guide.cy + offset.dy}
-                      r={r}
+                      cx={cx + offset.dx}
+                      cy={cy + offset.dy}
+                      rx={rx}
+                      ry={ry}
                       className={active ? 'gd__circle gd__circle--on' : 'gd__circle'}
                     />
                   );
@@ -1876,16 +2065,20 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
               ))}
 
               {/* Yarıçap etiketi: seçili dairenin boyutu tuvalde okunur */}
-              {edited && edited.kind === 'circle' && (
-                <text
-                  x={edited.cx + (handleDraft && handleDraft.kind === 'radius' ? handleDraft.r : edited.r) + handleSize}
-                  y={edited.cy - handleSize * 0.6}
-                  className="gd__handle-label"
-                  style={{ fontSize: Math.max(9, 11 * (guides.size / Math.max(1, paperSize))) }}
-                >
-                  r {Math.round(handleDraft && handleDraft.kind === 'radius' ? handleDraft.r : edited.r)}
-                </text>
-              )}
+              {edited && edited.kind === 'circle' && (() => {
+                const { rx, ry } = ellipseOf(edited, handleDraft && handleDraft.guideId === edited.id ? handleDraft : null);
+                const stretched = Math.abs(rx - ry) > 0.5;
+                return (
+                  <text
+                    x={edited.cx + rx + handleSize}
+                    y={edited.cy - handleSize * 0.6}
+                    className="gd__handle-label"
+                    style={{ fontSize: Math.max(9, 11 * (guides.size / Math.max(1, paperSize))) }}
+                  >
+                    {stretched ? `${Math.round(rx * 2)}×${Math.round(ry * 2)}` : `r ${Math.round(rx)}`}
+                  </text>
+                );
+              })()}
 
               {/* Çizim önizlemesi */}
               {draft && draft.kind === 'circle' && draft.r > 0 && (
@@ -2000,6 +2193,7 @@ export function GridDrawStudio({ onOpenStudio }: GridDrawStudioProps) {
             <li>Listeden bir kılavuz seç: tuvaldeki <strong>◻ tutamağı</strong> sürükleyip boyutunu/yarıçapını değiştir.</li>
             <li><strong>Gezdirme:</strong> <strong>✋</strong> (kısayol <strong>H</strong>) ya da <strong>boşluk</strong>+sürükle veya <strong>orta tuş</strong>+sürükle · tekerlek = kaydır, <strong>Ctrl</strong>+tekerlek = imlecin üstünde yakınlaştır.</li>
             <li><strong>Daireyi büyüt/küçült:</strong> çembere tıkla (hangi araç açık olursa olsun seçilir) → ◻ tutamaklardan birini çek; daire merkezden büyür, oranı bozulmaz.</li>
+            <li><strong>Serbest boyut</strong> (<strong>⤢</strong>, kısayol <strong>5</strong>): dört tutamağın her biri <strong>yalnız kendi kenarını</strong> iter — karşı kenar yerinde kalır, daire <strong>elips</strong> olur (oranlı değil).</li>
             <li>Halkayı kalınlaştır/incelt: iç daireyi seç, tutamağı çek — dolgu kendiliğinden tazelenir.</li>
             <li><strong>Shift + sürükle</strong> = dikdörtgen alan: içindeki bütün gözleri topluca boyar/siler.</li>
             <li><strong>Ctrl+Z</strong> her adımı geri alır: boyama, kılavuz çizme/taşıma/silme, ızgara değişikliği.</li>
