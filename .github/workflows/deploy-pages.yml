@@ -29,10 +29,12 @@ jobs:
       - name: Depoyu al
         uses: actions/checkout@v4
 
-      - name: Node 20 kur
+      - name: Node 24 kur
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Testler `node --test tests/*.test.ts` ile çalışıyor; Node'un
+          # TypeScript tip sıyırması gerektiğinden 22+ şart (yerel sürüm 24).
+          node-version: 24
           cache: npm
 
       - name: Bağımlılıkları kur
